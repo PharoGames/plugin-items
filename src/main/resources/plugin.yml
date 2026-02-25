@@ -1,0 +1,7 @@
+name: Items
+version: ${project.version}
+main: com.pharogames.items.ItemsPlugin
+api-version: 1.21
+author: PharoGames
+description: Centralized custom item registry with data components, MiniMessage, and interaction callbacks
+softdepend: [PlaceholderAPI]

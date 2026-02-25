@@ -1,0 +1,61 @@
+# plugin-items configuration
+# Config Service scope: plugin:plugin-items
+# ConfigLoader writes this file to /data/config/plugin-items.yml at pod startup.
+#
+# Items are defined under the `items` key. Each entry key is the logical ID.
+# Logical IDs must be unique across all plugins using this registry.
+# Convention: <plugin-name>.<item-name>  (e.g. lobby.compass, microbattles.flag)
+#
+# All displayName and lore values support MiniMessage formatting.
+# Lore values also support PlaceholderAPI placeholders (%player_name%, etc.)
+# when the item is created with a player context.
+
+items:
+  example.compass:
+    material: COMPASS
+    displayName: "<gold><bold>Example Compass</bold></gold>"
+    lore:
+      - "<gray>Right-click to open a menu"
+      - "<dark_gray>Holder: <yellow>%player_name%"
+    itemModel: "pharogames:example/compass"
+    enchantmentGlint: true
+    rarity: UNCOMMON
+    maxStackSize: 1
+    unbreakable: true
+    hideAdditionalTooltip: true
+    slot: 8
+    locked: true
+    droppable: false
+    movable: false
+    metadata:
+      type: gui
+
+  example.legendary_sword:
+    material: NETHERITE_SWORD
+    displayName: "<gradient:#ff6600:#ffcc00><bold>Legendary Blade</bold></gradient>"
+    lore:
+      - "<gray>A blade forged in the nether"
+      - ""
+      - "<red>Deal <white>+10 <red>bonus damage"
+      - "<yellow>Kills: <white>%statistic_player_kills%"
+    itemModel: "pharogames:weapons/legendary_blade"
+    customModelData:
+      strings:
+        - "legendary_blade"
+      floats: []
+      flags: []
+      colors: []
+    enchantmentGlint: true
+    rarity: EPIC
+    maxStackSize: 1
+    unbreakable: true
+    enchantments:
+      sharpness: 5
+    hideAdditionalTooltip: false
+    slot: -1
+    locked: false
+    droppable: true
+    movable: true
+    metadata:
+      type: weapon
+      tier: legendary
