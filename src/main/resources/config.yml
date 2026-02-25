@@ -11,15 +11,57 @@
 # when the item is created with a player context.
 
 items:
-  example.compass:
+  # ======================================================
+  # Lobby Items
+  # Right-click handlers for these are registered in
+  # plugin-lobby (LobbyItemsIntegration).
+  # ======================================================
+
+  lobby.server_selector:
     material: COMPASS
-    displayName: "<gold><bold>Example Compass</bold></gold>"
+    displayName: "<gold><bold>Server Selector</bold>"
     lore:
-      - "<gray>Right-click to open a menu"
-      - "<dark_gray>Holder: <yellow>%player_name%"
-    itemModel: "pharogames:example/compass"
+      - "<gray>Right-click to browse all game modes"
+      - "<dark_gray>%player_name%"
+    itemModel: "pharogames:lobby/server_selector"
     enchantmentGlint: true
     rarity: UNCOMMON
+    maxStackSize: 1
+    unbreakable: true
+    hideAdditionalTooltip: true
+    slot: 4
+    locked: true
+    droppable: false
+    movable: false
+    metadata:
+      type: gui
+      gui: server_selector
+
+  lobby.cosmetics:
+    material: CHEST
+    displayName: "<light_purple><bold>Cosmetics</bold>"
+    lore:
+      - "<gray>Right-click to customize your look"
+    itemModel: "pharogames:lobby/cosmetics"
+    rarity: COMMON
+    maxStackSize: 1
+    unbreakable: true
+    hideAdditionalTooltip: true
+    slot: 7
+    locked: true
+    droppable: false
+    movable: false
+    metadata:
+      type: gui
+      gui: cosmetics
+
+  lobby.settings:
+    material: COMPARATOR
+    displayName: "<gray><bold>Settings</bold>"
+    lore:
+      - "<gray>Right-click to adjust your preferences"
+    itemModel: "pharogames:lobby/settings"
+    rarity: COMMON
     maxStackSize: 1
     unbreakable: true
     hideAdditionalTooltip: true
@@ -29,33 +71,68 @@ items:
     movable: false
     metadata:
       type: gui
+      gui: settings
 
-  example.legendary_sword:
-    material: NETHERITE_SWORD
-    displayName: "<gradient:#ff6600:#ffcc00><bold>Legendary Blade</bold></gradient>"
+  # ======================================================
+  # Example kit items (referenced by plugin-gameplay-runtime)
+  # ======================================================
+
+  item.health_potion:
+    material: POTION
+    displayName: "<red>Health Potion"
     lore:
-      - "<gray>A blade forged in the nether"
-      - ""
-      - "<red>Deal <white>+10 <red>bonus damage"
-      - "<yellow>Kills: <white>%statistic_player_kills%"
-    itemModel: "pharogames:weapons/legendary_blade"
-    customModelData:
-      strings:
-        - "legendary_blade"
-      floats: []
-      flags: []
-      colors: []
-    enchantmentGlint: true
-    rarity: EPIC
-    maxStackSize: 1
-    unbreakable: true
-    enchantments:
-      sharpness: 5
-    hideAdditionalTooltip: false
+      - "<gray>Restores <red>10 health"
+    itemModel: "pharogames:kits/health_potion"
+    maxStackSize: 16
+    unbreakable: false
     slot: -1
     locked: false
     droppable: true
     movable: true
     metadata:
+      type: consumable
+      healAmount: 10
+
+  item.iron_sword:
+    material: IRON_SWORD
+    displayName: "<white>Iron Sword"
+    lore:
+      - "<gray>A reliable melee weapon"
+    itemModel: "pharogames:kits/iron_sword"
+    rarity: COMMON
+    maxStackSize: 1
+    unbreakable: false
+    hideAdditionalTooltip: true
+    slot: 0
+    locked: false
+    droppable: true
+    movable: true
+    metadata:
       type: weapon
-      tier: legendary
+
+  item.bow:
+    material: BOW
+    displayName: "<white>Bow"
+    lore:
+      - "<gray>A ranged weapon"
+    itemModel: "pharogames:kits/bow"
+    rarity: COMMON
+    maxStackSize: 1
+    unbreakable: false
+    slot: 0
+    locked: false
+    droppable: true
+    movable: true
+    metadata:
+      type: weapon
+
+  item.arrows:
+    material: ARROW
+    displayName: "<white>Arrow"
+    maxStackSize: 64
+    slot: -1
+    locked: false
+    droppable: true
+    movable: true
+    metadata:
+      type: ammo

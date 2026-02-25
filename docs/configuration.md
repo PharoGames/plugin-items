@@ -20,8 +20,11 @@
 
 ## Configuration
 
-Config is loaded from `/data/config/plugin-items.yml` (written by configloader at pod startup).
-Falls back to the bundled `config.yml` if the external file is not present.
+Config is loaded from the plugin's standard Bukkit data folder: `plugins/Items/config.yml`.
+The configloader init container fetches this file from Config Service and writes it to
+`plugins/Items/config.yml` before the server starts (manifest entry: `plugin="Items"`,
+`filename="config.yml"`). If the file is absent, the bundled `config.yml` from the JAR
+is saved as the default via `saveDefaultConfig()`.
 
 Config Service scope: `plugin:plugin-items`
 
@@ -54,8 +57,9 @@ items:
     enchantments:                      # -> ENCHANTMENTS
       sharpness: 5
       fire_aspect: 2
-    hideTooltip: false                 # -> TOOLTIP_DISPLAY.hideTooltip
-    hideAdditionalTooltip: false       # -> TOOLTIP_DISPLAY, hides ATTRIBUTE_MODIFIERS from display
+    hideTooltip: false                 # -> TOOLTIP_DISPLAY.hideTooltip (hides entire tooltip)
+    hideAdditionalTooltip: false       # -> TOOLTIP_DISPLAY.addHiddenComponents (hides ATTRIBUTE_MODIFIERS,
+                                       #    ENCHANTMENTS, STORED_ENCHANTMENTS, and UNBREAKABLE from tooltip)
 
     # ===== Inventory Behaviour (defaults, overridable per giveItem call) =====
     slot: 4                            # Default inventory slot. -1 = next available.
@@ -76,8 +80,13 @@ items:
 
 ### Startup behaviour
 
+- `saveDefaultConfig()` is called first: if `plugins/Items/config.yml` does not exist it is
+  created from the bundled JAR default. The configloader normally overwrites this with the
+  Config Service version before the server starts, so the bundled default acts only as a
+  last-resort fallback.
 - Config is parsed at `onEnable`. Fails fast (shuts down the server) if any item definition is invalid.
-- The bundled `config.yml` contains example items only. Server items are configured via Config Service.
+- The bundled `config.yml` contains lobby items and sample kit items as examples. Production
+  items are managed via Config Service under scope `plugin:plugin-items`.
 
 ---
 

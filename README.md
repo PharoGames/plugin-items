@@ -10,7 +10,7 @@ Centralized custom item registry for all PharoGames server types.
 - **Callback-based interaction system**: right-click, left-click, shift variants, any-click
 - **Inventory protection**: per-item `locked`, `droppable`, `movable` flags baked into PDC
 - **Player head support**: skin resolved at give-time via `GiveOptions.headOwner(Player/UUID)` using `PROFILE` component (never static, never refreshed)
-- **Config-driven**: items defined in YAML via Config Service (`plugin:plugin-items` scope)
+- **Config-driven**: items defined in YAML (`plugins/Items/config.yml`) via Config Service scope `plugin:plugin-items`; bundled default is used when Config Service is unreachable
 
 ## Quick Start
 

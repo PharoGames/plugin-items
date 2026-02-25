@@ -17,12 +17,12 @@ import java.util.logging.Level;
 /**
  * Loads ItemDefinitions from the plugin's YAML config.
  *
- * Config is read from /data/config/plugin-items.yml if it exists (written by configloader),
- * otherwise falls back to the bundled config.yml in the JAR.
+ * Config is read from {@code plugins/Items/config.yml} (the standard Bukkit data folder).
+ * The configloader init container writes this file from the config-service before the
+ * Minecraft server starts (manifest entry: plugin="Items", filename="config.yml").
+ * If the file does not exist, the bundled {@code config.yml} from the JAR is used as a default.
  */
 public class ItemConfigLoader {
-
-    private static final String CONFIG_FILE = "/data/config/plugin-items.yml";
 
     private final JavaPlugin plugin;
 
@@ -63,14 +63,12 @@ public class ItemConfigLoader {
     }
 
     private FileConfiguration loadConfig() {
-        File external = new File(CONFIG_FILE);
-        if (external.exists()) {
-            plugin.getLogger().info("Loading items config from " + CONFIG_FILE);
-            return YamlConfiguration.loadConfiguration(external);
-        }
-        plugin.getLogger().info("External config not found at " + CONFIG_FILE + ", using bundled config.yml");
+        // The configloader writes to plugins/Items/config.yml in the server working dir.
+        // saveDefaultConfig() writes the bundled config.yml to the same location if absent.
         plugin.saveDefaultConfig();
-        return plugin.getConfig();
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        plugin.getLogger().info("Loading items config from " + configFile.getPath());
+        return YamlConfiguration.loadConfiguration(configFile);
     }
 
     private ItemDefinition parseItem(String logicalId, ConfigurationSection s) {
