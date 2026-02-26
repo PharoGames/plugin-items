@@ -68,7 +68,19 @@ public class ItemConfigLoader {
         plugin.saveDefaultConfig();
         File configFile = new File(plugin.getDataFolder(), "config.yml");
         plugin.getLogger().info("Loading items config from " + configFile.getPath());
-        return YamlConfiguration.loadConfiguration(configFile);
+
+        // Bukkit uses '.' as a path separator by default, which breaks logical IDs
+        // that use dot-namespacing (e.g. "lobby.start_game" → nested "lobby" → "start_game").
+        // Using a NUL separator preserves dotted keys as flat string keys.
+        YamlConfiguration config = new YamlConfiguration();
+        config.options().pathSeparator('\0');
+        try {
+            config.load(configFile);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to load items config: " + configFile.getPath(), e);
+        }
+        return config;
     }
 
     private ItemDefinition parseItem(String logicalId, ConfigurationSection s) {
