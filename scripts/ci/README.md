@@ -56,7 +56,6 @@ scripts/ci/
 ├── server-image/       # Server image CI scripts
 │   ├── build.sh        # Build Docker image with plugins
 │   ├── push.sh         # Push to GHCR
-│   └── notify.sh       # Notify orchestrator (CI only)
 │
 └── microservice/       # Microservice CI scripts
     ├── build.sh        # Build microservice image
@@ -71,7 +70,6 @@ Scripts automatically detect whether they're running in CI:
   - Uploads plugin JARs to S3 (`pharogames-plugins` bucket)
   - Pushes Docker images to GHCR
   - Updates infrastructure repository
-  - Notifies orchestrator
 
 ## Core Libraries
 
