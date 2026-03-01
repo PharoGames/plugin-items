@@ -23,15 +23,15 @@ fi
 
 # Logging functions
 log_info() {
-    echo -e "${COLOR_BLUE}[INFO]${COLOR_NC} $*"
+    echo -e "${COLOR_BLUE}[INFO]${COLOR_NC} $*" >&2
 }
 
 log_success() {
-    echo -e "${COLOR_GREEN}[SUCCESS]${COLOR_NC} $*"
+    echo -e "${COLOR_GREEN}[SUCCESS]${COLOR_NC} $*" >&2
 }
 
 log_warning() {
-    echo -e "${COLOR_YELLOW}[WARN]${COLOR_NC} $*"
+    echo -e "${COLOR_YELLOW}[WARN]${COLOR_NC} $*" >&2
 }
 
 log_error() {
@@ -39,7 +39,7 @@ log_error() {
 }
 
 log_step() {
-    echo -e "${COLOR_CYAN}==>${COLOR_NC} $*"
+    echo -e "${COLOR_CYAN}==>${COLOR_NC} $*" >&2
 }
 
 # Error handling
