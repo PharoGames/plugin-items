@@ -51,6 +51,8 @@ jobs:
         continue-on-error: true
         env:
           CI: true
+          PLUGIN_NAME: ${{ steps.build.outputs.plugin_name }}
+          ARTIFACT_DIGEST: ${{ steps.build.outputs.artifact_digest }}
           APP_ID: ${{ secrets.APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           GITHUB_INSTALLATION_ID: ${{ secrets.GITHUB_INSTALLATION_ID }}

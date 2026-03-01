@@ -36,16 +36,20 @@ done
 
 log_step "Updating Plugin Registry"
 
-# Get build metadata from previous step
-if [[ ! -f "$GITHUB_OUTPUT" ]]; then
-    die "Build metadata not found (GITHUB_OUTPUT not set)"
-fi
-
-plugin_name=$(grep "^plugin_name=" "$GITHUB_OUTPUT" | cut -d'=' -f2-)
-artifact_digest=$(grep "^artifact_digest=" "$GITHUB_OUTPUT" | cut -d'=' -f2-)
+# Get build metadata — prefer env vars passed from workflow step outputs,
+# fall back to reading GITHUB_OUTPUT file (which the runner may clear between steps)
+plugin_name="${PLUGIN_NAME:-}"
+artifact_digest="${ARTIFACT_DIGEST:-}"
 
 if [[ -z "$plugin_name" ]] || [[ -z "$artifact_digest" ]]; then
-    die "Build metadata incomplete (plugin_name or artifact_digest missing)"
+    if [[ -f "${GITHUB_OUTPUT:-}" ]]; then
+        plugin_name="${plugin_name:-$(grep "^plugin_name=" "$GITHUB_OUTPUT" | cut -d'=' -f2- || true)}"
+        artifact_digest="${artifact_digest:-$(grep "^artifact_digest=" "$GITHUB_OUTPUT" | cut -d'=' -f2- || true)}"
+    fi
+fi
+
+if [[ -z "$plugin_name" ]] || [[ -z "$artifact_digest" ]]; then
+    die "Build metadata incomplete — pass PLUGIN_NAME and ARTIFACT_DIGEST env vars, or ensure build step writes to GITHUB_OUTPUT"
 fi
 
 log_info "Plugin: $plugin_name"
