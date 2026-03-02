@@ -72,10 +72,15 @@ built_at=$(get_timestamp)
 
 log_info "Writing registry file: $registry_file"
 
+normalized_digest="${artifact_digest}"
+if [[ "$normalized_digest" != sha256:* ]]; then
+    normalized_digest="sha256:${normalized_digest}"
+fi
+
 cat > "$registry_file" <<EOF
 plugin: ${plugin_name}
 artifact:
-  digest: ${artifact_digest}
+  digest: ${normalized_digest}
   builtAt: ${built_at}
 EOF
 
