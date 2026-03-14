@@ -39,10 +39,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1
         run: |
-          python3 -m venv /tmp/awsvenv && /tmp/awsvenv/bin/pip install awscli -q
+          mkdir -p $GITHUB_WORKSPACE/.ci-deps && python3 -m venv $GITHUB_WORKSPACE/.ci-deps/awsvenv && $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/pip install awscli -q
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           JAR_FILE=$(ls target/${ARTIFACT_ID}-*.jar | grep -v original | grep -v sources | grep -v javadoc | head -1)
-          /tmp/awsvenv/bin/aws s3 cp "$JAR_FILE" "s3://pharogames-plugins/${ARTIFACT_ID}.jar" --region "$AWS_REGION"
+          $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/aws s3 cp "$JAR_FILE" "s3://pharogames-plugins/${ARTIFACT_ID}.jar" --region "$AWS_REGION"
           echo "Uploaded $JAR_FILE -> s3://pharogames-plugins/${ARTIFACT_ID}.jar"
 
       - name: Update plugin registry
