@@ -76,6 +76,7 @@ items:
 
 - All IDs must be unique across all plugins using this registry
 - Use dot-namespacing: `<plugin>.<name>` (e.g. `lobby.compass`, `microbattles.flag`)
+- **YAML:** Prefer `lobby_item_name` over `lobby.item_name` for item keys — dotted keys can become nested maps when config is round-tripped through the config-service. Alternatively quote keys: `"lobby.item_name":`.
 - Items defined in Config Service under scope `plugin:plugin-items` are loaded on all server types that include this plugin
 
 ### Startup behaviour
