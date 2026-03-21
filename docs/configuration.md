@@ -219,7 +219,7 @@ They are self-describing -- the ProtectionListener reads them directly from the 
 | `droppable` | `items:droppable` | true | If false, cancels PlayerDropItemEvent |
 | `movable` | `items:movable` | true | If false, blocks inventory click moves (weaker than locked) |
 
-A locked item is always also non-movable.
+A locked item is always also non-movable. Locked or non-movable custom items cannot be placed as blocks (e.g. a CHEST material used as a menu button).
 
 ---
 

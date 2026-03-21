@@ -5,6 +5,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
@@ -16,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
  *   <li><b>locked</b>   – item cannot be moved between slots in any inventory</li>
  *   <li><b>droppable</b> – item cannot be dropped by the player</li>
  *   <li><b>movable</b>  – item cannot be moved within an inventory (weaker than locked)</li>
+ *   <li>locked / non-movable items also cannot be used to place blocks in the world</li>
  * </ul>
  *
  * The flags are read directly from the ItemStack's PDC (self-describing items).
@@ -82,6 +84,20 @@ public class ProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
         if (shouldBlock(event.getMainHandItem()) || shouldBlock(event.getOffHandItem())) {
+            event.setCancelled(true);
+        }
+    }
+
+    // ========================== Block placement ==========================
+
+    /**
+     * Prevents placing blocks with locked lobby-style items (e.g. CHEST used as a cosmetics button).
+     * Same rules as inventory protection: locked or non-movable custom items cannot be placed.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
+        if (shouldBlock(item)) {
             event.setCancelled(true);
         }
     }
