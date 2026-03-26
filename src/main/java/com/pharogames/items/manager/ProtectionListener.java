@@ -8,6 +8,14 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.Action;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -100,6 +108,61 @@ public class ProtectionListener implements Listener {
         if (shouldBlock(item)) {
             event.setCancelled(true);
         }
+    }
+
+    // ========================== Entity Interactions ==========================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityInteract(PlayerInteractEntityEvent event) {
+        ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
+        if (shouldBlock(item)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        if (shouldBlock(event.getPlayerItem())) {
+            event.setCancelled(true);
+        }
+    }
+
+    // ========================== Block Interactions ==========================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        ItemStack item = event.getItem();
+        if (shouldBlock(item)) {
+            Block block = event.getClickedBlock();
+            if (block != null) {
+                Material type = block.getType();
+                // Blocks that can consume or store items on right click
+                if (type == Material.FLOWER_POT ||
+                    type == Material.JUKEBOX ||
+                    type == Material.COMPOSTER ||
+                    type == Material.CAMPFIRE ||
+                    type == Material.SOUL_CAMPFIRE ||
+                    type == Material.CHISELED_BOOKSHELF ||
+                    type == Material.DECORATED_POT ||
+                    type == Material.LODESTONE ||
+                    type == Material.RESPAWN_ANCHOR ||
+                    type == Material.END_PORTAL_FRAME ||
+                    type.name().endsWith("_CAULDRON") ||
+                    type == Material.CAVE_VINES ||
+                    type == Material.CAVE_VINES_PLANT ||
+                    type == Material.SWEET_BERRY_BUSH) {
+                    event.setUseItemInHand(Event.Result.DENY);
+                }
+            }
+        }
+    }
+
+    // ========================== Death drops ==========================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        event.getDrops().removeIf(this::shouldBlock);
     }
 
     // ========================== Helpers ==========================
