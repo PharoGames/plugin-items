@@ -83,10 +83,15 @@ public class ItemConfigLoader {
         return config;
     }
 
-    private ItemDefinition parseItem(String logicalId, ConfigurationSection s) {
+    private ItemDefinition parseItem(String mapKey, ConfigurationSection s) {
+        String logicalId = s.getString("logicalId");
+        if (logicalId == null || logicalId.isBlank()) {
+            logicalId = mapKey;
+        }
+
         String material = s.getString("material");
         if (material == null || material.isBlank()) {
-            throw new IllegalArgumentException("'material' is required");
+            throw new IllegalArgumentException("'material' is required for item '" + logicalId + "'");
         }
 
         ItemDefinition.Builder builder = ItemDefinition.builder(logicalId, material.toUpperCase())
@@ -136,6 +141,14 @@ public class ItemConfigLoader {
             List<Boolean> flags = cmdSection.getBooleanList("flags");
             List<Integer> colors = cmdSection.getIntegerList("colors");
             builder.customModelData(new ItemDefinition.CustomModelDataDef(strings, floats, flags, colors));
+        }
+
+        ConfigurationSection foodSection = s.getConfigurationSection("food");
+        if (foodSection != null) {
+            int nutrition = foodSection.getInt("nutrition", 0);
+            float saturation = (float) foodSection.getDouble("saturation", 0.0);
+            boolean canAlwaysEat = foodSection.getBoolean("canAlwaysEat", false);
+            builder.food(new ItemDefinition.FoodDef(nutrition, saturation, canAlwaysEat));
         }
 
         // Arbitrary metadata

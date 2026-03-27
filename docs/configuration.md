@@ -32,7 +32,13 @@ Config Service scope: `plugin:plugin-items`
 
 ```yaml
 items:
-  <logical-id>:
+  <yaml-key>:
+    # ===== Identity (optional) =====
+    logicalId: <registry-id>         # If set, this value is the Items API id (for recipes, code).
+                                      # If omitted, the YAML map key is the logical ID.
+                                      # Use a dot-free key + explicit logicalId for config-service-safe entries
+                                      # (e.g. key hungergames_kill_token, logicalId hungergames.kill_token).
+
     # ===== Required =====
     material: <BUKKIT_MATERIAL>        # e.g. COMPASS, NETHERITE_SWORD, PLAYER_HEAD
 
@@ -60,6 +66,10 @@ items:
     hideTooltip: false                 # -> TOOLTIP_DISPLAY.hideTooltip (hides entire tooltip)
     hideAdditionalTooltip: false       # -> TOOLTIP_DISPLAY.addHiddenComponents (hides ATTRIBUTE_MODIFIERS,
                                        #    ENCHANTMENTS, STORED_ENCHANTMENTS, and UNBREAKABLE from tooltip)
+    food:                               # Optional. -> FOOD (FoodProperties); overrides type defaults on this stack
+      nutrition: 0                      # Hunger points restored (0 = none)
+      saturation: 0.0                   # Saturation restored
+      canAlwaysEat: true                # Eat even at full hunger (e.g. tokens)
 
     # ===== Inventory Behaviour (defaults, overridable per giveItem call) =====
     slot: 4                            # Default inventory slot. -1 = next available.
@@ -76,7 +86,7 @@ items:
 
 - All IDs must be unique across all plugins using this registry
 - Use dot-namespacing: `<plugin>.<name>` (e.g. `lobby.compass`, `microbattles.flag`)
-- **YAML:** Prefer `lobby_item_name` over `lobby.item_name` for item keys — dotted keys can become nested maps when config is round-tripped through the config-service. Alternatively quote keys: `"lobby.item_name":`.
+- **YAML map keys:** Prefer dot-free keys for config-service compatibility; set `logicalId: myplugin.my_item` when the registry id must contain dots (e.g. recipe ingredients). Without `logicalId`, the map key itself is the logical ID.
 - Items defined in Config Service under scope `plugin:plugin-items` are loaded on all server types that include this plugin
 
 ### Startup behaviour

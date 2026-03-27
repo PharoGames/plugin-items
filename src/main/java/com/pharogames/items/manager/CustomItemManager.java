@@ -6,6 +6,7 @@ import com.pharogames.items.config.ItemDefinition;
 import com.pharogames.items.registry.ItemRegistry;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.CustomModelData;
+import io.papermc.paper.datacomponent.item.FoodProperties;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import io.papermc.paper.datacomponent.item.TooltipDisplay;
@@ -241,6 +242,16 @@ public class CustomItemManager {
                 }
                 item.setItemMeta(meta);
             }
+        }
+
+        // --- FOOD (override vanilla food stats for this stack, e.g. custom "steak" token) ---
+        if (def.getFood() != null) {
+            ItemDefinition.FoodDef fd = def.getFood();
+            item.setData(DataComponentTypes.FOOD, FoodProperties.food()
+                    .nutrition(fd.getNutrition())
+                    .saturation(fd.getSaturation())
+                    .canAlwaysEat(fd.isCanAlwaysEat())
+                    .build());
         }
 
         // --- TOOLTIP_DISPLAY (unified hide system replacing HIDE_TOOLTIP / HIDE_ADDITIONAL_TOOLTIP) ---

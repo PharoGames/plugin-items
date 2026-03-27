@@ -40,6 +40,9 @@ public class ItemDefinition {
     // Arbitrary metadata for plugin-specific use
     private final Map<String, Object> metadata;
 
+    /** When non-null, overrides the item type's {@code minecraft:food} component (1.21+). */
+    private final FoodDef food;
+
     private ItemDefinition(Builder builder) {
         this.logicalId = builder.logicalId;
         this.material = builder.material;
@@ -59,6 +62,7 @@ public class ItemDefinition {
         this.droppable = builder.droppable;
         this.movable = builder.movable;
         this.metadata = Map.copyOf(builder.metadata);
+        this.food = builder.food;
     }
 
     public String getLogicalId() { return logicalId; }
@@ -79,6 +83,7 @@ public class ItemDefinition {
     public boolean isDroppable() { return droppable; }
     public boolean isMovable() { return movable; }
     public Map<String, Object> getMetadata() { return metadata; }
+    public FoodDef getFood() { return food; }
 
     public static Builder builder(String logicalId, String material) {
         return new Builder(logicalId, material);
@@ -104,6 +109,7 @@ public class ItemDefinition {
         private boolean droppable = true;
         private boolean movable = true;
         private Map<String, Object> metadata = new HashMap<>();
+        private FoodDef food = null;
 
         private Builder(String logicalId, String material) {
             this.logicalId = logicalId;
@@ -126,6 +132,11 @@ public class ItemDefinition {
         public Builder droppable(boolean droppable) { this.droppable = droppable; return this; }
         public Builder movable(boolean movable) { this.movable = movable; return this; }
         public Builder metadata(Map<String, Object> metadata) { this.metadata = metadata; return this; }
+        /**
+         * Sets the {@code minecraft:food} data component, overriding defaults for this item type
+         * (e.g. steak appearance with custom nutrition / saturation).
+         */
+        public Builder food(FoodDef food) { this.food = food; return this; }
 
         public ItemDefinition build() {
             if (logicalId == null || logicalId.isBlank()) {
@@ -159,5 +170,24 @@ public class ItemDefinition {
         public List<Float> getFloats() { return floats; }
         public List<Boolean> getFlags() { return flags; }
         public List<Integer> getColors() { return colors; }
+    }
+
+    /**
+     * Food component override (Paper {@code DataComponentTypes.FOOD} / {@code FoodProperties}).
+     */
+    public static final class FoodDef {
+        private final int nutrition;
+        private final float saturation;
+        private final boolean canAlwaysEat;
+
+        public FoodDef(int nutrition, float saturation, boolean canAlwaysEat) {
+            this.nutrition = nutrition;
+            this.saturation = saturation;
+            this.canAlwaysEat = canAlwaysEat;
+        }
+
+        public int getNutrition() { return nutrition; }
+        public float getSaturation() { return saturation; }
+        public boolean isCanAlwaysEat() { return canAlwaysEat; }
     }
 }
