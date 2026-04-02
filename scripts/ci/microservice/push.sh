@@ -78,7 +78,7 @@ if is_ci; then
             
             # Build and push latest tag
             docker buildx build \
-                --platform linux/amd64,linux/arm64 \
+                --platform linux/amd64 \
                 -f "$dockerfile" \
                 -t "$latest_tag" \
                 --push \

@@ -86,11 +86,11 @@ log_info "Dockerfile: $dockerfile"
 log_info "Building Docker image..."
 
 if is_ci && [[ "$use_multiarch" == "true" ]]; then
-    # CI: Multi-arch build
-    log_info "Building multi-arch image (amd64, arm64)..."
+    # CI: amd64 build
+    log_info "Building amd64 image..."
     
     if ! docker_build_and_push_multiarch "$image_tag" "$dockerfile" "."; then
-        die "Failed to build multi-arch image"
+        die "Failed to build amd64 image"
     fi
 else
     # Local or single-arch: Standard build
