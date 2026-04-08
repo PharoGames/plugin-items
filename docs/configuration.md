@@ -80,7 +80,10 @@ items:
     # ===== Arbitrary Metadata =====
     metadata:
       type: gui                        # Read via ItemsAPI.getDefinition(logicalId).getMetadata()
+      gui: battlepass                  # Lobby: plugin-lobby ItemsIntegration opens Battle Pass when set (with hotbar-items listing this logical id)
 ```
+
+**Lobby hotbar GUIs** (`plugin-lobby` `ItemsIntegration`): optional `metadata.gui` routes right-click — `cosmetics`, `start_game`, **`battlepass`**, etc. The item must still be listed under the lobby plugin’s `hotbar-items` (see `plugin-lobby` / `server-image-lobby` docs).
 
 ### Logical ID conventions
 
