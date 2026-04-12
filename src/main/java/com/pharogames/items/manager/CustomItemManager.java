@@ -317,21 +317,12 @@ public class CustomItemManager {
                 return;
             }
 
-            // Build a Paper PlayerProfile and populate it (fetches textures from Mojang).
-            // This is intentionally blocking -- skins are resolved once at item creation time.
             PlayerProfile profile = plugin.getServer().createProfile(uuid, name);
-            if (!profile.isComplete() || !profile.hasTextures()) {
-                try {
-                    profile = profile.update().get();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    plugin.getLogger().warning("[Items] Interrupted while fetching skin for UUID " + uuid);
-                } catch (ExecutionException e) {
-                    plugin.getLogger().log(Level.WARNING, "[Items] Could not fetch skin for UUID " + uuid, e);
-                }
-            }
-
-            // Use the Paper PROFILE DataComponent instead of deprecated SkullMeta
+            
+            // Use the Paper PROFILE DataComponent instead of deprecated SkullMeta.
+            // We pass the profile directly without blocking to fetch textures.
+            // Paper's ResolvableProfile will handle resolving the textures asynchronously
+            // when the item is sent to the client, preventing main thread stalls.
             item.setData(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile(profile));
 
         } catch (Exception e) {
