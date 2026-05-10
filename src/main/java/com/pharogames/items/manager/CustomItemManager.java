@@ -60,10 +60,10 @@ public class CustomItemManager {
     public CustomItemManager(JavaPlugin plugin, ItemRegistry registry) {
         this.plugin = plugin;
         this.registry = registry;
-        this.keyLogicalId = new NamespacedKey(PDC_NAMESPACE, "logical_id");
-        this.keyLocked = new NamespacedKey(PDC_NAMESPACE, "locked");
-        this.keyDroppable = new NamespacedKey(PDC_NAMESPACE, "droppable");
-        this.keyMovable = new NamespacedKey(PDC_NAMESPACE, "movable");
+        this.keyLogicalId = new NamespacedKey(plugin, "logical_id");
+        this.keyLocked = new NamespacedKey(plugin, "locked");
+        this.keyDroppable = new NamespacedKey(plugin, "droppable");
+        this.keyMovable = new NamespacedKey(plugin, "movable");
     }
 
     public void setPapiAvailable(boolean available) {

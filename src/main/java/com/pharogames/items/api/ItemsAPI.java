@@ -3,6 +3,7 @@ package com.pharogames.items.api;
 import com.pharogames.items.config.ItemDefinition;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
 
@@ -105,12 +106,22 @@ public interface ItemsAPI {
 
     /**
      * Registers a callback invoked when a player interacts with an item of the given logical ID.
-     * Multiple handlers can be registered for the same item + interact type.
+     * The handler is automatically removed when {@code owner} is disabled.
      *
+     * @param owner      the plugin registering this handler (used for auto-cleanup on reload)
      * @param logicalId  the item's logical ID
      * @param type       the interact type(s) that trigger the handler
      * @param handler    the handler to invoke
      */
+    void registerInteraction(Plugin owner, String logicalId, InteractType type, ItemInteractHandler handler);
+
+    /**
+     * Registers a callback without an owner. Prefer
+     * {@link #registerInteraction(Plugin, String, InteractType, ItemInteractHandler)}.
+     *
+     * @deprecated Pass the owning plugin so stale handlers are auto-purged on reload.
+     */
+    @Deprecated
     void registerInteraction(String logicalId, InteractType type, ItemInteractHandler handler);
 
     /**

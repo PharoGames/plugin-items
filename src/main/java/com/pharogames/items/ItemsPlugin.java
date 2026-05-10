@@ -8,6 +8,9 @@ import com.pharogames.items.manager.CustomItemManager;
 import com.pharogames.items.manager.InteractionManager;
 import com.pharogames.items.manager.ProtectionListener;
 import com.pharogames.items.registry.ItemRegistry;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Collection;
@@ -24,7 +27,7 @@ import java.util.Collection;
  * Fails fast (shuts down the server) if config is invalid,
  * following the project-wide fail-meaningfully convention.
  */
-public class ItemsPlugin extends JavaPlugin {
+public class ItemsPlugin extends JavaPlugin implements Listener {
 
     private static ItemsPlugin instance;
     private static ItemsAPI api;
@@ -91,8 +94,16 @@ public class ItemsPlugin extends JavaPlugin {
     }
 
     private void registerListeners() {
+        getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(interactionManager, this);
         getServer().getPluginManager().registerEvents(new ProtectionListener(itemManager), this);
+    }
+
+    @EventHandler
+    public void onPluginDisable(PluginDisableEvent event) {
+        if (event.getPlugin() != this) {
+            interactionManager.unregisterAll(event.getPlugin());
+        }
     }
 
     private void initAPI() {

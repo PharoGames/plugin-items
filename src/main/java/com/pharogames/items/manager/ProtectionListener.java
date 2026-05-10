@@ -162,7 +162,14 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        event.getDrops().removeIf(this::shouldBlock);
+        java.util.Iterator<ItemStack> it = event.getDrops().iterator();
+        while (it.hasNext()) {
+            ItemStack item = it.next();
+            if (shouldBlock(item)) {
+                it.remove();
+                event.getItemsToKeep().add(item);
+            }
+        }
     }
 
     // ========================== Helpers ==========================

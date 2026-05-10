@@ -9,6 +9,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +31,7 @@ public class InteractionManager implements Listener {
     private final Logger logger;
 
     /**
-     * Map of logicalId -> list of (InteractType, handler) pairs.
+     * Map of logicalId -> list of (Plugin owner, InteractType, handler) triples.
      * ConcurrentHashMap for thread-safety on registration; list mutations are synchronised.
      */
     private final Map<String, List<HandlerEntry>> handlers = new ConcurrentHashMap<>();
@@ -42,13 +43,33 @@ public class InteractionManager implements Listener {
 
     // ========================== Registration ==========================
 
-    public void register(String logicalId, InteractType type, ItemInteractHandler handler) {
+    /**
+     * Registers an interaction handler owned by {@code owner}.
+     * When {@code owner} is disabled, all of its handlers are automatically purged.
+     */
+    public void register(Plugin owner, String logicalId, InteractType type, ItemInteractHandler handler) {
         handlers.computeIfAbsent(logicalId, k -> Collections.synchronizedList(new ArrayList<>()))
-                .add(new HandlerEntry(type, handler));
+                .add(new HandlerEntry(owner, type, handler));
+    }
+
+    /** @deprecated Pass the owning {@link Plugin} so stale handlers are auto-purged on reload. */
+    @Deprecated
+    public void register(String logicalId, InteractType type, ItemInteractHandler handler) {
+        register(null, logicalId, type, handler);
     }
 
     public void unregisterAll(String logicalId) {
         handlers.remove(logicalId);
+    }
+
+    /** Purges all handlers whose owner is {@code plugin}. Called from PluginDisableEvent. */
+    public void unregisterAll(Plugin plugin) {
+        for (List<HandlerEntry> list : handlers.values()) {
+            synchronized (list) {
+                list.removeIf(e -> e.owner() == plugin);
+            }
+        }
+        handlers.values().removeIf(List::isEmpty);
     }
 
     // ========================== Event handling ==========================
@@ -73,9 +94,9 @@ public class InteractionManager implements Listener {
         boolean isSneaking = event.getPlayer().isSneaking();
 
         for (HandlerEntry entry : new ArrayList<>(entries)) {
-            if (entry.type.matches(action, isSneaking)) {
+            if (entry.type().matches(action, isSneaking)) {
                 try {
-                    entry.handler.onInteract(event.getPlayer(), item, entry.type);
+                    entry.handler().onInteract(event.getPlayer(), item, entry.type());
                 } catch (Exception e) {
                     logger.severe("[Items] Exception in interaction handler for '" + logicalId + "': " + e.getMessage());
                 }
@@ -85,5 +106,5 @@ public class InteractionManager implements Listener {
 
     // ========================== Internal ==========================
 
-    private record HandlerEntry(InteractType type, ItemInteractHandler handler) {}
+    private record HandlerEntry(Plugin owner, InteractType type, ItemInteractHandler handler) {}
 }

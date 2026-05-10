@@ -10,6 +10,7 @@ import com.pharogames.items.manager.InteractionManager;
 import com.pharogames.items.registry.ItemRegistry;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
 
@@ -93,8 +94,14 @@ public class ItemsAPIImpl implements ItemsAPI {
     // ========== Interaction Callbacks ==========
 
     @Override
+    public void registerInteraction(Plugin owner, String logicalId, InteractType type, ItemInteractHandler handler) {
+        interactionManager.register(owner, logicalId, type, handler);
+    }
+
+    @Override
+    @Deprecated
     public void registerInteraction(String logicalId, InteractType type, ItemInteractHandler handler) {
-        interactionManager.register(logicalId, type, handler);
+        interactionManager.register(null, logicalId, type, handler);
     }
 
     @Override
