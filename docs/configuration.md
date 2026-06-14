@@ -163,16 +163,20 @@ if (items.isCustomItem(itemStack)) {
 
 Callbacks are registered per logical ID and interact type. Multiple handlers can be registered for the same item.
 
+Always pass your plugin instance as the first argument (the owner). Owner-bearing handlers are
+automatically purged when your plugin disables; the owner-less overload is deprecated because its
+handlers leak on disable/reload and pin classes from a dead classloader.
+
 ```java
 // Right-click handler (lobby compass opens server selector)
-items.registerInteraction("lobby.compass", InteractType.RIGHT_CLICK,
+items.registerInteraction(this, "lobby.compass", InteractType.RIGHT_CLICK,
     (player, item, type) -> openServerSelectorGUI(player));
 
 // Shift-right-click for a different action
-items.registerInteraction("lobby.compass", InteractType.SHIFT_RIGHT_CLICK,
+items.registerInteraction(this, "lobby.compass", InteractType.SHIFT_RIGHT_CLICK,
     (player, item, type) -> sendMessage(player, "<gray>No shift action registered."));
 
-// Clean up when your plugin disables
+// Optional explicit cleanup (owner-bearing handlers are also auto-purged on disable)
 @Override
 public void onDisable() {
     items.unregisterInteractions("lobby.compass");

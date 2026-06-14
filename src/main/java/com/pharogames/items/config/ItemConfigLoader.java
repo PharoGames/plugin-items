@@ -1,5 +1,6 @@
 package com.pharogames.items.config;
 
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -92,6 +93,14 @@ public class ItemConfigLoader {
         String material = s.getString("material");
         if (material == null || material.isBlank()) {
             throw new IllegalArgumentException("'material' is required for item '" + logicalId + "'");
+        }
+        // Validate the material name resolves to a real Bukkit Material at parse time so a
+        // typo'd or renamed material (e.g. CHAIN -> IRON_CHAIN on Purpur 1.21.11) aborts
+        // startup via the fail-fast loadAll() path instead of silently no-op'ing at give-time.
+        // matchMaterial accepts both "NETHERITE_SWORD" and "minecraft:netherite_sword" forms.
+        if (Material.matchMaterial(material) == null) {
+            throw new IllegalArgumentException("Unknown material '" + material + "' for item '" + logicalId
+                    + "' -- not a valid Bukkit Material (check for typos or a renamed material).");
         }
 
         ItemDefinition.Builder builder = ItemDefinition.builder(logicalId, material.toUpperCase())

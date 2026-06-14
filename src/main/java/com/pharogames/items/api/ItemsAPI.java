@@ -18,8 +18,8 @@ import java.util.Collection;
  * // Give a compass locked in slot 8
  * items.giveItem(player, "lobby.compass");
  *
- * // Register a right-click handler
- * items.registerInteraction("lobby.compass", InteractType.RIGHT_CLICK,
+ * // Register a right-click handler (pass your plugin as owner for auto-cleanup on disable)
+ * items.registerInteraction(this, "lobby.compass", InteractType.RIGHT_CLICK,
  *     (p, item, type) -> openServerSelectorGUI(p));
  *
  * // Register a custom item at runtime (e.g. from a gamemode plugin's onEnable)
@@ -37,8 +37,23 @@ import java.util.Collection;
  */
 public interface ItemsAPI {
 
+    /**
+     * Returns the active ItemsAPI instance.
+     *
+     * @throws IllegalStateException if plugin-items is not currently enabled (it has not finished
+     *         enabling yet, has been disabled, or its onEnable failed). Consumers must declare
+     *         {@code depend: [Items]} in plugin.yml so plugin-items loads first; calling this
+     *         before that ordering is satisfied throws an actionable error naming plugin-items
+     *         instead of an opaque NPE deep in consumer code.
+     */
     static ItemsAPI getInstance() {
-        return com.pharogames.items.ItemsPlugin.getAPI();
+        ItemsAPI api = com.pharogames.items.ItemsPlugin.getAPI();
+        if (api == null) {
+            throw new IllegalStateException(
+                    "plugin-items is not enabled (check load order -- add 'depend: [Items]' to your "
+                            + "plugin.yml, or plugin-items failed to enable; see server logs).");
+        }
+        return api;
     }
 
     // ========== Item Creation ==========
