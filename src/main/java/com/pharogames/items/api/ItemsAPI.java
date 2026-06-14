@@ -18,8 +18,8 @@ import java.util.Collection;
  * // Give a compass locked in slot 8
  * items.giveItem(player, "lobby.compass");
  *
- * // Register a right-click handler
- * items.registerInteraction("lobby.compass", InteractType.RIGHT_CLICK,
+ * // Register a right-click handler (pass your plugin as owner for auto-cleanup on disable)
+ * items.registerInteraction(this, "lobby.compass", InteractType.RIGHT_CLICK,
  *     (p, item, type) -> openServerSelectorGUI(p));
  *
  * // Register a custom item at runtime (e.g. from a gamemode plugin's onEnable)
@@ -37,6 +37,16 @@ import java.util.Collection;
  */
 public interface ItemsAPI {
 
+    /**
+     * Returns the active ItemsAPI instance, or {@code null} if plugin-items is not currently
+     * enabled (it has not finished enabling yet, has been disabled, or its onEnable failed).
+     *
+     * <p>This contract is deliberately null-returning, not throwing: plugin-items is a
+     * {@code softdepend} for several consumers (e.g. plugin-lobby) that degrade gracefully when
+     * Items is absent (hotbar items simply disabled). Throwing here would propagate out of a
+     * consumer's {@code onEnable} and cause Bukkit to hard-disable that consumer instead of
+     * letting it soft-degrade. Callers should null-check the result.</p>
+     */
     static ItemsAPI getInstance() {
         return com.pharogames.items.ItemsPlugin.getAPI();
     }

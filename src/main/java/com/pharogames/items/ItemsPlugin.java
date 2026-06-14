@@ -55,7 +55,8 @@ public class ItemsPlugin extends JavaPlugin implements Listener {
             getLogger().severe("plugin-items FAILED TO ENABLE: " + e.getMessage());
             getLogger().severe("Server startup aborted.");
             getLogger().severe("========================================");
-            getLogger().severe(e.toString());
+            // Log with the throwable so the full stack trace reaches pod logs / Loki, not just e.toString().
+            getLogger().log(java.util.logging.Level.SEVERE, "plugin-items enable failure", e);
             getServer().shutdown();
         }
     }

@@ -19,6 +19,7 @@
         <purpur.version>1.21.11-R0.1-SNAPSHOT</purpur.version>
         <adventure.version>4.14.0</adventure.version>
         <placeholderapi.version>2.11.5</placeholderapi.version>
+        <junit.version>5.10.2</junit.version>
         <github.owner>PharoGames</github.owner>
         <github.repo>plugin-items</github.repo>
     </properties>
@@ -58,6 +59,14 @@
             <version>${placeholderapi.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- JUnit 5 (test only) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -70,6 +79,12 @@
                     <source>21</source>
                     <target>21</target>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
             </plugin>
 
             <plugin>

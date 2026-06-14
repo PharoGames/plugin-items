@@ -18,8 +18,9 @@ Centralized custom item registry for all PharoGames server types.
 // Give a configured item
 ItemsAPI.getInstance().giveItem(player, "lobby.compass");
 
-// Right-click opens a GUI
-ItemsAPI.getInstance().registerInteraction("lobby.compass", InteractType.RIGHT_CLICK,
+// Right-click opens a GUI.
+// Pass your plugin instance as the owner so handlers are auto-purged when it disables.
+ItemsAPI.getInstance().registerInteraction(this, "lobby.compass", InteractType.RIGHT_CLICK,
     (p, item, type) -> openServerSelectorGUI(p));
 
 // Register an item at runtime

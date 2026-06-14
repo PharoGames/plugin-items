@@ -57,6 +57,9 @@ public class CustomItemManager {
 
     private boolean papiAvailable = false;
 
+    /** Lore lines whose PAPI resolution already failed once, so we log each failure only once. */
+    private final java.util.Set<String> loggedPapiFailures = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     public CustomItemManager(JavaPlugin plugin, ItemRegistry registry) {
         this.plugin = plugin;
         this.registry = registry;
@@ -113,7 +116,17 @@ public class CustomItemManager {
         if (slot >= 0 && slot < player.getInventory().getSize()) {
             player.getInventory().setItem(slot, item);
         } else {
-            player.getInventory().addItem(item);
+            // addItem returns the portion that did not fit (full inventory). Don't let it vanish
+            // silently -- log it and drop the leftover at the player's feet so the item is not lost.
+            Map<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+            if (!leftover.isEmpty()) {
+                plugin.getLogger().warning("[Items] Inventory full for player '" + player.getName()
+                        + "' while giving '" + logicalId + "' -- dropping " + leftover.size()
+                        + " leftover stack(s) at their location.");
+                for (ItemStack drop : leftover.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), drop);
+                }
+            }
         }
     }
 
@@ -149,12 +162,13 @@ public class CustomItemManager {
 
     @SuppressWarnings("UnstableApiUsage")
     private ItemStack buildItemStack(ItemDefinition def, Player player, GiveOptions options) {
-        Material material;
-        try {
-            material = Material.valueOf(def.getMaterial().toUpperCase());
-        } catch (IllegalArgumentException e) {
+        // Config-loaded definitions are material-validated at parse time (ItemConfigLoader),
+        // but runtime-registered definitions (ItemsAPI.registerItem) are not, so keep a guard
+        // here. matchMaterial accepts both "NETHERITE_SWORD" and "minecraft:netherite_sword".
+        Material material = Material.matchMaterial(def.getMaterial());
+        if (material == null) {
             plugin.getLogger().severe("[Items] Invalid material '" + def.getMaterial() +
-                    "' for item '" + def.getLogicalId() + "' -- skipping.");
+                    "' for item '" + def.getLogicalId() + "' -- cannot create item.");
             return null;
         }
 
@@ -337,6 +351,14 @@ public class CustomItemManager {
         try {
             return me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, text);
         } catch (Exception e) {
+            // Don't silently swallow PAPI expansion failures -- a misbehaving expansion would
+            // otherwise stop lore placeholder resolution network-wide with no signal in logs.
+            // Rate-limit to once per unique lore line so a hot path can't flood the log.
+            if (loggedPapiFailures.add(text)) {
+                plugin.getLogger().log(Level.WARNING,
+                        "[Items] PlaceholderAPI failed to resolve lore line '" + text
+                                + "' for player '" + player.getName() + "' -- using unresolved text.", e);
+            }
             return text;
         }
     }

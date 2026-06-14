@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -36,6 +37,10 @@ public class InteractionManager implements Listener {
      */
     private final Map<String, List<HandlerEntry>> handlers = new ConcurrentHashMap<>();
 
+    /** Logical IDs already warned about deprecated owner-less registration (warn once each). */
+    private final java.util.Set<String> loggedOwnerlessRegistrations =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     public InteractionManager(CustomItemManager itemManager, Logger logger) {
         this.itemManager = itemManager;
         this.logger = logger;
@@ -55,6 +60,14 @@ public class InteractionManager implements Listener {
     /** @deprecated Pass the owning {@link Plugin} so stale handlers are auto-purged on reload. */
     @Deprecated
     public void register(String logicalId, InteractType type, ItemInteractHandler handler) {
+        // owner=null entries can never be matched by the PluginDisableEvent purge
+        // (unregisterAll(Plugin) removes by owner==plugin), so they leak on disable/reload and
+        // pin classes from a dead classloader. Surface adoption drift once per logical id.
+        if (loggedOwnerlessRegistrations.add(logicalId)) {
+            logger.warning("[Items] Deprecated owner-less registerInteraction used for '" + logicalId
+                    + "' -- these handlers are NOT auto-purged when the owning plugin disables and "
+                    + "will reference a dead classloader on reload. Use the Plugin-owning overload.");
+        }
         register(null, logicalId, type, handler);
     }
 
@@ -98,7 +111,10 @@ public class InteractionManager implements Listener {
                 try {
                     entry.handler().onInteract(event.getPlayer(), item, entry.type());
                 } catch (Exception e) {
-                    logger.severe("[Items] Exception in interaction handler for '" + logicalId + "': " + e.getMessage());
+                    // Log with the throwable so the full stack trace reaches pod logs / Loki.
+                    // e.getMessage() alone is null for bare NPEs, yielding an undebuggable "...: null".
+                    logger.log(Level.SEVERE,
+                            "[Items] Exception in interaction handler for '" + logicalId + "'", e);
                 }
             }
         }
