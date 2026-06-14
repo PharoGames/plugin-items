@@ -38,22 +38,17 @@ import java.util.Collection;
 public interface ItemsAPI {
 
     /**
-     * Returns the active ItemsAPI instance.
+     * Returns the active ItemsAPI instance, or {@code null} if plugin-items is not currently
+     * enabled (it has not finished enabling yet, has been disabled, or its onEnable failed).
      *
-     * @throws IllegalStateException if plugin-items is not currently enabled (it has not finished
-     *         enabling yet, has been disabled, or its onEnable failed). Consumers must declare
-     *         {@code depend: [Items]} in plugin.yml so plugin-items loads first; calling this
-     *         before that ordering is satisfied throws an actionable error naming plugin-items
-     *         instead of an opaque NPE deep in consumer code.
+     * <p>This contract is deliberately null-returning, not throwing: plugin-items is a
+     * {@code softdepend} for several consumers (e.g. plugin-lobby) that degrade gracefully when
+     * Items is absent (hotbar items simply disabled). Throwing here would propagate out of a
+     * consumer's {@code onEnable} and cause Bukkit to hard-disable that consumer instead of
+     * letting it soft-degrade. Callers should null-check the result.</p>
      */
     static ItemsAPI getInstance() {
-        ItemsAPI api = com.pharogames.items.ItemsPlugin.getAPI();
-        if (api == null) {
-            throw new IllegalStateException(
-                    "plugin-items is not enabled (check load order -- add 'depend: [Items]' to your "
-                            + "plugin.yml, or plugin-items failed to enable; see server logs).");
-        }
-        return api;
+        return com.pharogames.items.ItemsPlugin.getAPI();
     }
 
     // ========== Item Creation ==========
