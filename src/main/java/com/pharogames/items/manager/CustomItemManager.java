@@ -12,6 +12,7 @@ import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -182,11 +183,15 @@ public class CustomItemManager {
         }
 
         // --- LORE ---
+        // Minecraft renders item lore italic by default (same as custom names). The display
+        // name above sidesteps this by using ITEM_NAME; lore has no such component, so we force
+        // ITALIC=false on each line's root component. An explicit <i>/<italic> tag in the config
+        // string still wins (it sets ITALIC=true on that span), so authors can opt back in.
         if (!def.getLore().isEmpty()) {
             List<Component> loreComponents = new ArrayList<>();
             for (String line : def.getLore()) {
                 String resolved = resolvePapi(line, player);
-                loreComponents.add(miniMessage.deserialize(resolved));
+                loreComponents.add(miniMessage.deserialize(resolved).decoration(TextDecoration.ITALIC, false));
             }
             item.setData(DataComponentTypes.LORE, ItemLore.lore(loreComponents));
         }
