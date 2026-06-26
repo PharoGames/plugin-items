@@ -45,7 +45,8 @@ items:
     # ===== Presentation =====
     displayName: "<minimessage>"       # MiniMessage string -> ITEM_NAME component (no italics)
     lore:
-      - "<minimessage line>"           # MiniMessage + PAPI placeholders -> LORE component
+      - "<minimessage line>"           # MiniMessage + PAPI placeholders -> LORE component (no italics;
+                                        #   builder forces ITALIC=false, add <i>...</i> to opt back in)
 
     # ===== Model (1.21) =====
     itemModel: "<namespace:path>"      # -> ITEM_MODEL component (e.g. "pharogames:weapons/sword")
