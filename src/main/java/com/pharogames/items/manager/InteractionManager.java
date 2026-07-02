@@ -2,6 +2,7 @@ package com.pharogames.items.manager;
 
 import com.pharogames.items.api.InteractType;
 import com.pharogames.items.api.ItemInteractHandler;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -106,8 +107,10 @@ public class InteractionManager implements Listener {
 
         boolean isSneaking = event.getPlayer().isSneaking();
 
+        boolean handled = false;
         for (HandlerEntry entry : new ArrayList<>(entries)) {
             if (entry.type().matches(action, isSneaking)) {
+                handled = true;
                 try {
                     entry.handler().onInteract(event.getPlayer(), item, entry.type());
                 } catch (Exception e) {
@@ -117,6 +120,14 @@ public class InteractionManager implements Listener {
                             "[Items] Exception in interaction handler for '" + logicalId + "'", e);
                 }
             }
+        }
+
+        // A functional item (cosmetics GUI, parkour bed, etc.) exists to run its handler, never
+        // to be placed/consumed. If we ran a handler, deny the item's vanilla use so a
+        // RIGHT_CLICK_BLOCK does not also place the block for players who can build (admins,
+        // creative). We deny only the item-in-hand result, leaving block interaction intact.
+        if (handled) {
+            event.setUseItemInHand(Event.Result.DENY);
         }
     }
 
