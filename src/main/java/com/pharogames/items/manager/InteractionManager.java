@@ -96,6 +96,13 @@ public class InteractionManager implements Listener {
         Action action = event.getAction();
         if (action == Action.PHYSICAL) return;
 
+        // If a higher-priority listener already denied the item-in-hand action, do not run the item's
+        // functional handler. This is what lets plugin-loot suppress the spurious item use a right-click on a
+        // loot-chest Interaction entity triggers: the vanilla client falls through the entity click to
+        // USE_ITEM, so opening a chest would otherwise also fire a legendary/consumable bound here. plugin-loot
+        // DENYs that fall-through at LOWEST, so we skip. A normal use (nothing denied it) is unaffected.
+        if (event.useItemInHand() == Event.Result.DENY) return;
+
         ItemStack item = event.getItem();
         if (item == null) return;
 
