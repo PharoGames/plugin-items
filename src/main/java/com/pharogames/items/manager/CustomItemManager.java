@@ -22,7 +22,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemRarity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.potion.PotionType;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -260,6 +262,26 @@ public class CustomItemManager {
                     }
                 }
                 item.setItemMeta(meta);
+            }
+        }
+
+        // --- POTION contents (base type carries both the effect and its vanilla duration) ---
+        // Config-loaded definitions are validated in ItemConfigLoader; runtime-registered ones are
+        // not, so a bad type or a non-potion material warns and leaves the stack otherwise intact
+        // rather than killing the give.
+        if (def.getPotionType() != null) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta instanceof PotionMeta potionMeta) {
+                try {
+                    potionMeta.setBasePotionType(PotionType.valueOf(def.getPotionType().toUpperCase()));
+                    item.setItemMeta(potionMeta);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("[Items] Unknown potion type '" + def.getPotionType() +
+                            "' for item '" + def.getLogicalId() + "'");
+                }
+            } else {
+                plugin.getLogger().warning("[Items] Item '" + def.getLogicalId() + "' sets a potion type but "
+                        + "material '" + def.getMaterial() + "' has no PotionMeta -- potion type ignored.");
             }
         }
 

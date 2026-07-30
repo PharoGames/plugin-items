@@ -5,6 +5,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionType;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 /**
@@ -24,6 +26,22 @@ import java.util.logging.Level;
  * If the file does not exist, the bundled {@code config.yml} from the JAR is used as a default.
  */
 public class ItemConfigLoader {
+
+    /** The only materials whose ItemMeta is a PotionMeta, i.e. that can hold a base potion type. */
+    private static final Set<String> POTION_MATERIALS =
+            Set.of("POTION", "SPLASH_POTION", "LINGERING_POTION", "TIPPED_ARROW");
+
+    /**
+     * Every key {@link #parseItem} reads. Anything else in an item's section is either a typo
+     * ({@code enchantment} for {@code enchantments}) or a field a NEWER config expects from an
+     * OLDER jar — both used to be dropped in silence, which is how a potion definition delivered
+     * ahead of its jar becomes an empty bottle in a loot chest with nothing in the logs.
+     */
+    private static final Set<String> KNOWN_KEYS = Set.of(
+            "logicalId", "material", "displayName", "lore", "itemModel", "customModelData",
+            "enchantmentGlint", "rarity", "maxStackSize", "unbreakable", "enchantments",
+            "hideTooltip", "hideAdditionalTooltip", "food", "potion",
+            "slot", "locked", "droppable", "movable", "metadata");
 
     private final JavaPlugin plugin;
 
@@ -61,6 +79,41 @@ public class ItemConfigLoader {
         }
         plugin.getLogger().info("Loaded " + definitions.size() + " item definitions from config.");
         return definitions;
+    }
+
+    /**
+     * Validates a {@code potion.type} value and returns it normalised to the enum constant's case.
+     *
+     * <p>Both failure modes throw so the fail-fast {@link #loadAll()} path aborts server start: a
+     * potion whose type never applied would look configured in YAML and behave like an empty
+     * "Uncraftable Potion" in game, which is the kind of silent wrong-loot that only surfaces mid-match.
+     *
+     * @param rawType    the configured type, case-insensitive
+     * @param material   the item's material, used to reject a potion type on a non-potion stack
+     * @param logicalId  the item id, for the error message
+     */
+    static String validatePotionType(String rawType, String material, String logicalId) {
+        if (rawType == null || rawType.isBlank()) {
+            throw new IllegalArgumentException("'potion.type' is required when a 'potion' section is present "
+                    + "for item '" + logicalId + "'");
+        }
+        String normalised = rawType.trim().toUpperCase();
+        try {
+            PotionType.valueOf(normalised);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown potion type '" + rawType + "' for item '" + logicalId
+                    + "' -- not a Bukkit PotionType constant (e.g. FIRE_RESISTANCE, LONG_FIRE_RESISTANCE, "
+                    + "REGENERATION, STRONG_REGENERATION).", e);
+        }
+        // A base potion type only lives on a stack whose meta is a PotionMeta. Anywhere else it is
+        // dropped at give-time, so reject it here instead of shipping an item that reads as
+        // configured and behaves vanilla.
+        if (material == null || !POTION_MATERIALS.contains(material.trim().toUpperCase())) {
+            throw new IllegalArgumentException("Item '" + logicalId + "' sets 'potion.type' but its material is '"
+                    + material + "'; a base potion type applies only to POTION, SPLASH_POTION, "
+                    + "LINGERING_POTION, TIPPED_ARROW.");
+        }
+        return normalised;
     }
 
     private FileConfiguration loadConfig() {
@@ -152,6 +205,15 @@ public class ItemConfigLoader {
             builder.customModelData(new ItemDefinition.CustomModelDataDef(strings, floats, flags, colors));
         }
 
+        // Potion contents. A bare POTION stack renders as an empty "Uncraftable Potion", so a
+        // potion item is only ever useful with a base type; the type also carries the vanilla
+        // DURATION (FIRE_RESISTANCE 3:00 vs LONG_FIRE_RESISTANCE 8:00), which is why there is no
+        // separate duration field to get out of step with the constant.
+        ConfigurationSection potionSection = s.getConfigurationSection("potion");
+        if (potionSection != null) {
+            builder.potionType(validatePotionType(potionSection.getString("type"), material, logicalId));
+        }
+
         ConfigurationSection foodSection = s.getConfigurationSection("food");
         if (foodSection != null) {
             int nutrition = foodSection.getInt("nutrition", 0);
@@ -170,6 +232,35 @@ public class ItemConfigLoader {
             builder.metadata(metadata);
         }
 
+        List<String> unknown = unknownKeys(s.getKeys(false));
+        if (!unknown.isEmpty()) {
+            plugin.getLogger().warning("[Items] Item '" + logicalId + "' has unrecognised config key(s) "
+                    + unknown + " -- ignored. Either a typo, or this config expects a newer plugin-items "
+                    + "than the one running; the item is built WITHOUT them.");
+        }
+
         return builder.build();
+    }
+
+    /**
+     * Returns the keys in an item's section that this loader does not read, sorted for a stable
+     * log line.
+     *
+     * <p>The caller WARNs rather than throws on purpose. An unknown key is usually a config
+     * delivered ahead of the jar that understands it — on a shared plugin baked into the base image
+     * that skew is a routine few minutes of a rollout, and aborting start would turn every game pod
+     * on the network into a crashloop over a field the item does not strictly need. A WARN naming
+     * the item and the key is enough to find it in {@code logs_errors} instead of discovering it as
+     * wrong loot mid-match.
+     */
+    static List<String> unknownKeys(Collection<String> keys) {
+        List<String> unknown = new ArrayList<>();
+        for (String key : keys) {
+            if (!KNOWN_KEYS.contains(key)) {
+                unknown.add(key);
+            }
+        }
+        Collections.sort(unknown);
+        return unknown;
     }
 }

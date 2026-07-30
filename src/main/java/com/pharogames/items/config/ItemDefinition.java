@@ -43,6 +43,15 @@ public class ItemDefinition {
     /** When non-null, overrides the item type's {@code minecraft:food} component (1.21+). */
     private final FoodDef food;
 
+    /**
+     * Bukkit {@code PotionType} constant name (e.g. {@code FIRE_RESISTANCE}) for a POTION /
+     * SPLASH_POTION / LINGERING_POTION / TIPPED_ARROW stack, or null for every other item.
+     * The type carries vanilla's effect AND its vanilla duration, so a duration is chosen by
+     * picking the right constant ({@code FIRE_RESISTANCE} = 3:00, {@code LONG_FIRE_RESISTANCE}
+     * = 8:00) rather than by a separate field.
+     */
+    private final String potionType;
+
     private ItemDefinition(Builder builder) {
         this.logicalId = builder.logicalId;
         this.material = builder.material;
@@ -63,6 +72,7 @@ public class ItemDefinition {
         this.movable = builder.movable;
         this.metadata = Map.copyOf(builder.metadata);
         this.food = builder.food;
+        this.potionType = builder.potionType;
     }
 
     public String getLogicalId() { return logicalId; }
@@ -84,6 +94,7 @@ public class ItemDefinition {
     public boolean isMovable() { return movable; }
     public Map<String, Object> getMetadata() { return metadata; }
     public FoodDef getFood() { return food; }
+    public String getPotionType() { return potionType; }
 
     public static Builder builder(String logicalId, String material) {
         return new Builder(logicalId, material);
@@ -110,6 +121,7 @@ public class ItemDefinition {
         private boolean movable = true;
         private Map<String, Object> metadata = new HashMap<>();
         private FoodDef food = null;
+        private String potionType = null;
 
         private Builder(String logicalId, String material) {
             this.logicalId = logicalId;
@@ -137,6 +149,12 @@ public class ItemDefinition {
          * (e.g. steak appearance with custom nutrition / saturation).
          */
         public Builder food(FoodDef food) { this.food = food; return this; }
+        /**
+         * Sets the base potion type by Bukkit {@code PotionType} constant name. Only meaningful on
+         * a potion-shaped material; other materials carry no PotionMeta and the value is ignored
+         * with a warning at build time.
+         */
+        public Builder potionType(String potionType) { this.potionType = potionType; return this; }
 
         public ItemDefinition build() {
             if (logicalId == null || logicalId.isBlank()) {

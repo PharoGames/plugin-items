@@ -67,6 +67,9 @@ items:
     hideTooltip: false                 # -> TOOLTIP_DISPLAY.hideTooltip (hides entire tooltip)
     hideAdditionalTooltip: false       # -> TOOLTIP_DISPLAY.addHiddenComponents (hides ATTRIBUTE_MODIFIERS,
                                        #    ENCHANTMENTS, STORED_ENCHANTMENTS, and UNBREAKABLE from tooltip)
+    potion:                             # Optional. POTION / SPLASH_POTION / LINGERING_POTION / TIPPED_ARROW only
+      type: FIRE_RESISTANCE             # Bukkit PotionType constant -> PotionMeta.setBasePotionType
+
     food:                               # Optional. -> FOOD (FoodProperties); overrides type defaults on this stack
       nutrition: 0                      # Hunger points restored (0 = none)
       saturation: 0.0                   # Saturation restored
@@ -85,6 +88,56 @@ items:
 ```
 
 **Lobby hotbar GUIs** (`plugin-lobby` `ItemsIntegration`): optional `metadata.gui` routes right-click — `cosmetics`, `start_game`, **`battlepass`**, etc. The item must still be listed under the lobby plugin’s `hotbar-items` (see `plugin-lobby` / `server-image-lobby` docs).
+
+### Potions
+
+A bare `POTION` stack carries no effect and renders as an empty *Uncraftable Potion*, so a potion item is only
+useful with a base type:
+
+```yaml
+skywars_fire_resistance_potion:
+  logicalId: skywars.fire_resistance_potion
+  material: POTION
+  potion:
+    type: FIRE_RESISTANCE
+```
+
+The type sets both the effect **and** its vanilla duration — pick the constant that carries the duration you
+want rather than looking for a duration field:
+
+| Constant | Effect | Duration |
+|---|---|---|
+| `FIRE_RESISTANCE` | Fire Resistance | 3:00 |
+| `LONG_FIRE_RESISTANCE` | Fire Resistance | 8:00 |
+| `REGENERATION` | Regeneration I | 0:45 |
+| `LONG_REGENERATION` | Regeneration I | 1:30 |
+| `STRONG_REGENERATION` | Regeneration II | 0:22 |
+
+Any Bukkit `PotionType` constant works (`SWIFTNESS`, `LONG_SWIFTNESS`, `STRONG_HEALING`, …). Rules:
+
+- Valid only on `POTION`, `SPLASH_POTION`, `LINGERING_POTION`, `TIPPED_ARROW`. On anything else the item is
+  **rejected at load** and the server aborts, rather than shipping a stack that reads as configured and behaves
+  vanilla.
+- An unknown constant is likewise rejected at load, naming the item and the bad value.
+- Values are case-insensitive; `fire_resistance` and `FIRE_RESISTANCE` are the same type.
+- Custom (non-vanilla) effect/duration combinations are not supported — only base types.
+- `displayName`/`lore` still apply. Leave them out and the potion reads as the plain vanilla item, which is what
+  loot-pool potions want.
+
+### Unrecognised keys
+
+Any key in an item's section that the loader does not read is logged once at startup:
+
+```
+[Items] Item 'skywars.fire_resistance_potion' has unrecognised config key(s) [potion] -- ignored.
+Either a typo, or this config expects a newer plugin-items than the one running; the item is built WITHOUT them.
+```
+
+It warns rather than aborts. plugin-items is baked into the shared base image while its config ships through
+config-service, so a config can legitimately reach a pod minutes before the jar that understands it; aborting
+would crashloop every game pod over one field. The WARN is the signal — `logs_errors({service: "..."})` finds
+it, and the alternative (what this replaced) was an item silently built without the field, which surfaces as
+wrong loot mid-match instead.
 
 ### Logical ID conventions
 
