@@ -4,6 +4,39 @@ Newest first. See workspace CLAUDE.md §6 for the rules. Don't delete rows; mark
 
 ---
 
+## 2026-08-02 — `vanillaStack` lets a definition opt out of its own identity
+
+**What.** New optional `vanillaStack: true`. The item is built with no PDC at all — no `logical_id`, no
+`locked`/`droppable`/`movable` — so it is byte-identical to the vanilla material and merges with vanilla
+copies of it. Default false, so every definition on the network builds exactly as before.
+
+**Why.** The PDC lands in the `minecraft:custom_data` component and `ItemStack.isSimilar` compares
+components, so an item this plugin builds can never stack with the same item from anywhere else. SkyWars
+kits hand out steak, arrows, planks, pearls and TNT through definitions that are *only* a material — they
+exist so a `KitItemEntry.logicalId` has something to name. A player left the cage with 2 kit steak, looted 3
+more from a chest, and held two stacks that would not combine. Reported from a live match.
+
+**Why here and not in the loot table.** The alternative was pointing the SkyWars loot entries at
+`items:cooked_beef` so both sources produce the tagged form. That makes the *chest* the odd one out instead:
+vanilla is what crafting outputs, what death drops preserve, and what every untagged entry in the pool
+already is, so tagging more of the pool spreads the mismatch rather than removing it. The mismatch is
+created here, at the point identity is stamped, so it is fixed here.
+
+**Why opt-in rather than automatic.** "Definition has no customisation → skip the PDC" would fix every
+gamemode at once and break several: HG, HG-event and Survival Islands match crafting ingredients by logical
+id, including plain ones, so silently un-tagging them would take out custom crafting network-wide. The flag
+makes each config say whether that item's identity is load-bearing.
+
+**Guard rails.** `locked` / `droppable: false` / `movable: false` alongside `vanillaStack` is **rejected at
+load** — those flags live in the PDC it strips, so honouring both would hand out an item whose lock is
+decoration. The same request arriving through `GiveOptions` at give-time can't be rejected without failing a
+give, so it WARNs and is ignored.
+
+**Blast radius.** Additive: a new config key (added to `KNOWN_KEYS`, so it doesn't trip the unrecognised-key
+WARN) and a new builder field. No existing definition changes shape. Deploy this JAR before the
+`server-image-skywars` Items config that uses it — an older jar reads the key as unrecognised, WARNs, and
+hands out the tagged item, which is today's behaviour.
+
 ## 2026-07-30 — Potions carry a base type only, no custom effect list
 
 **What.** New optional `potion.type` field maps a Bukkit `PotionType` constant onto `PotionMeta`. There is

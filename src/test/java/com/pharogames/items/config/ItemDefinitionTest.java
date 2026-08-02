@@ -67,6 +67,30 @@ class ItemDefinitionTest {
     }
 
     @Test
+    void vanillaStack_defaultsOff() {
+        assertEquals(false, ItemDefinition.builder("x.y", "COOKED_BEEF").build().isVanillaStack());
+    }
+
+    @Test
+    void vanillaStack_acceptsDefaultInventoryFlags() {
+        ItemDefinition def = ItemDefinition.builder("skywars.beef", "COOKED_BEEF")
+                .vanillaStack(true).build();
+        assertTrue(def.isVanillaStack());
+    }
+
+    @Test
+    void vanillaStack_rejectsFlagsItCannotCarry() {
+        // locked / droppable / movable live in the PDC that vanillaStack strips, so accepting both
+        // would hand out an item whose lock does nothing.
+        assertThrows(IllegalArgumentException.class, () -> ItemDefinition.builder("x.y", "PAPER")
+                .vanillaStack(true).locked(true).build());
+        assertThrows(IllegalArgumentException.class, () -> ItemDefinition.builder("x.y", "PAPER")
+                .vanillaStack(true).droppable(false).build());
+        assertThrows(IllegalArgumentException.class, () -> ItemDefinition.builder("x.y", "PAPER")
+                .vanillaStack(true).movable(false).build());
+    }
+
+    @Test
     void customModelData_nullListsBecomeEmpty() {
         ItemDefinition.CustomModelDataDef cmd =
                 new ItemDefinition.CustomModelDataDef(null, null, null, null);

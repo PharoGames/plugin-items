@@ -37,6 +37,18 @@ public class ItemDefinition {
     private final boolean droppable;
     private final boolean movable;
 
+    /**
+     * When true the built stack carries NO PDC identity (no logical id, no locked/droppable/movable
+     * flags), so it is byte-identical to the vanilla item and stacks with vanilla copies of the same
+     * material. For definitions that exist only to give a kit a name for a plain vanilla ingredient:
+     * without this, kit steak and chest steak are two different stacks that never merge.
+     *
+     * <p>The trade-off is the whole point of the flag: a vanillaStack item cannot be identified by
+     * {@link com.pharogames.items.api.ItemsAPI#getLogicalId}, cannot be locked / undroppable /
+     * unmovable, and cannot carry an interact handler. Enforced in {@link Builder#build()}.
+     */
+    private final boolean vanillaStack;
+
     // Arbitrary metadata for plugin-specific use
     private final Map<String, Object> metadata;
 
@@ -70,6 +82,7 @@ public class ItemDefinition {
         this.locked = builder.locked;
         this.droppable = builder.droppable;
         this.movable = builder.movable;
+        this.vanillaStack = builder.vanillaStack;
         this.metadata = Map.copyOf(builder.metadata);
         this.food = builder.food;
         this.potionType = builder.potionType;
@@ -92,6 +105,7 @@ public class ItemDefinition {
     public boolean isLocked() { return locked; }
     public boolean isDroppable() { return droppable; }
     public boolean isMovable() { return movable; }
+    public boolean isVanillaStack() { return vanillaStack; }
     public Map<String, Object> getMetadata() { return metadata; }
     public FoodDef getFood() { return food; }
     public String getPotionType() { return potionType; }
@@ -119,6 +133,7 @@ public class ItemDefinition {
         private boolean locked = false;
         private boolean droppable = true;
         private boolean movable = true;
+        private boolean vanillaStack = false;
         private Map<String, Object> metadata = new HashMap<>();
         private FoodDef food = null;
         private String potionType = null;
@@ -143,6 +158,12 @@ public class ItemDefinition {
         public Builder locked(boolean locked) { this.locked = locked; return this; }
         public Builder droppable(boolean droppable) { this.droppable = droppable; return this; }
         public Builder movable(boolean movable) { this.movable = movable; return this; }
+        /**
+         * Builds a bare vanilla stack with no PDC identity, so it merges with vanilla items of the
+         * same material. Mutually exclusive with the inventory-behaviour flags, which are stored in
+         * that PDC — see {@link ItemDefinition#isVanillaStack()}.
+         */
+        public Builder vanillaStack(boolean vanillaStack) { this.vanillaStack = vanillaStack; return this; }
         public Builder metadata(Map<String, Object> metadata) { this.metadata = metadata; return this; }
         /**
          * Sets the {@code minecraft:food} data component, overriding defaults for this item type
@@ -162,6 +183,14 @@ public class ItemDefinition {
             }
             if (material == null || material.isBlank()) {
                 throw new IllegalArgumentException("Item material cannot be null or blank for '" + logicalId + "'");
+            }
+            if (vanillaStack && (locked || !droppable || !movable)) {
+                // These flags live in the PDC that vanillaStack suppresses, so honouring both would
+                // mean silently ignoring one. Refuse the combination rather than hand out an item
+                // whose lock is decoration.
+                throw new IllegalArgumentException("Item '" + logicalId + "' sets vanillaStack together with"
+                        + " locked/droppable/movable — those flags are stored in the PDC that vanillaStack"
+                        + " strips. Drop vanillaStack, or drop the flags.");
             }
             return new ItemDefinition(this);
         }

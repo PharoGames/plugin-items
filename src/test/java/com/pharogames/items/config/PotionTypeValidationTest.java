@@ -74,10 +74,10 @@ class PotionTypeValidationTest {
                 "logicalId", "material", "displayName", "lore", "itemModel", "customModelData",
                 "enchantmentGlint", "rarity", "maxStackSize", "unbreakable", "enchantments",
                 "hideTooltip", "hideAdditionalTooltip", "food", "potion",
-                "slot", "locked", "droppable", "movable", "metadata")));
+                "slot", "locked", "droppable", "movable", "vanillaStack", "metadata")));
 
-        // 'potion' is readable on this jar, so it must NOT be flagged.
-        assertEquals(List.of(), ItemConfigLoader.unknownKeys(List.of("material", "potion")));
+        // 'potion' and 'vanillaStack' are readable on this jar, so they must NOT be flagged.
+        assertEquals(List.of(), ItemConfigLoader.unknownKeys(List.of("material", "potion", "vanillaStack")));
 
         // Typos and fields from a newer config are flagged, sorted, and nothing else is.
         assertEquals(List.of("enchantment", "potions"),
