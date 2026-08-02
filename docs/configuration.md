@@ -81,6 +81,10 @@ items:
     droppable: false                   # Cannot be dropped by the player
     movable: false                     # Cannot be moved within an inventory
 
+    # ===== Stacking =====
+    vanillaStack: true                 # Ship a bare vanilla stack: no PDC identity, so it merges
+                                       # with vanilla items of the same material. See below.
+
     # ===== Arbitrary Metadata =====
     metadata:
       type: gui                        # Read via ItemsAPI.getDefinition(logicalId).getMetadata()
@@ -123,6 +127,35 @@ Any Bukkit `PotionType` constant works (`SWIFTNESS`, `LONG_SWIFTNESS`, `STRONG_H
 - Custom (non-vanilla) effect/duration combinations are not supported — only base types.
 - `displayName`/`lore` still apply. Leave them out and the potion reads as the plain vanilla item, which is what
   loot-pool potions want.
+
+### `vanillaStack` — plain ingredients that stack with vanilla
+
+Every item this plugin builds normally carries four PDC entries (`logical_id`, `locked`, `droppable`,
+`movable`). Those land in the `minecraft:custom_data` component, and `ItemStack.isSimilar` compares
+components — so a definition that is *only* `material: COOKED_BEEF` still produces a steak that will **never
+merge with a vanilla steak**. A kit hands out 2 tagged steak, a loot chest drops 3 plain ones, and the player
+has two stacks that refuse to combine.
+
+`vanillaStack: true` drops the PDC, so the stack is byte-identical to the vanilla item:
+
+```yaml
+cooked_beef:
+  material: COOKED_BEEF
+  vanillaStack: true
+```
+
+Use it for definitions that exist only to give a kit (`plugin-gameplay-runtime` `KitItemEntry.logicalId`) or a
+loot table a name for a plain vanilla ingredient. What you give up is everything that identity buys:
+
+- `ItemsAPI.getLogicalId(stack)` returns null — the item cannot be recognised after it is given, so it cannot
+  be a crafting-recipe ingredient, an ability trigger, or anything else matched by logical id.
+- No interaction callback can fire for it (dispatch is keyed on the logical id).
+- `locked`, `droppable: false`, `movable: false` are **rejected at load** in combination with it, because
+  those flags live in the PDC it strips. The same request via `GiveOptions` at give-time logs a WARN and is
+  ignored.
+
+Anything with a `displayName`, `lore`, `itemModel`, enchantments, or a behaviour handler should *not* set it:
+those items are meant to be distinct, and are not stackable materials in the first place.
 
 ### Unrecognised keys
 

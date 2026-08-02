@@ -41,7 +41,7 @@ public class ItemConfigLoader {
             "logicalId", "material", "displayName", "lore", "itemModel", "customModelData",
             "enchantmentGlint", "rarity", "maxStackSize", "unbreakable", "enchantments",
             "hideTooltip", "hideAdditionalTooltip", "food", "potion",
-            "slot", "locked", "droppable", "movable", "metadata");
+            "slot", "locked", "droppable", "movable", "vanillaStack", "metadata");
 
     private final JavaPlugin plugin;
 
@@ -166,7 +166,8 @@ public class ItemConfigLoader {
                 .slot(s.getInt("slot", -1))
                 .locked(s.getBoolean("locked", false))
                 .droppable(s.getBoolean("droppable", true))
-                .movable(s.getBoolean("movable", true));
+                .movable(s.getBoolean("movable", true))
+                .vanillaStack(s.getBoolean("vanillaStack", false));
 
         if (s.contains("enchantmentGlint")) {
             builder.enchantmentGlint(s.getBoolean("enchantmentGlint"));

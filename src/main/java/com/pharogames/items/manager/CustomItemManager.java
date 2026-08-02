@@ -327,6 +327,20 @@ public class CustomItemManager {
                 ? options.getMovable() : def.isMovable();
 
         // --- Write PDC flags onto the item ---
+        // A vanillaStack definition takes none. The PDC lands in the custom_data component, which
+        // ItemStack.isSimilar compares, so a tagged steak and a vanilla steak are two stacks that
+        // never merge. Definitions that exist only to name a plain ingredient for a kit opt out, so
+        // the kit's copy and the one out of a loot chest are the same item.
+        if (def.isVanillaStack()) {
+            if (locked || !droppable || !movable) {
+                // The definition itself can't reach here (ItemDefinition.build rejects it), so this
+                // is a caller passing GiveOptions the stripped PDC cannot carry.
+                plugin.getLogger().warning("[Items] GiveOptions asked for locked/undroppable/unmovable on"
+                        + " vanillaStack item '" + def.getLogicalId() + "' -- ignored, those flags need the"
+                        + " PDC that vanillaStack strips.");
+            }
+            return item;
+        }
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             PersistentDataContainer pdc = meta.getPersistentDataContainer();
