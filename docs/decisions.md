@@ -44,9 +44,16 @@ server type flows through it — but both new branches are gated on a null/empty
 takes a byte-identical path. No d=1 dependent changed; the builder additions are new optional methods.
 
 **Deploy order.** JAR to R2 → base image rebuild → game image rebuild → *then* the `server-image-skywars` Items
-config that uses the keys. A config that arrives first is safe but degraded: the older jar logs the
-unrecognised-key WARN and builds the item WITHOUT the field — an infinite-durability bow and an effectless
-bottle — which is why the WARN is the thing to grep (`logs_errors`) during the rollout window.
+config that uses the keys. A config that arrives first is safe but degraded: the older jar builds the item
+WITHOUT the field — a vanilla-durability bow and a bottle carrying only its base potion type.
+
+**Only `maxDamage` is greppable during that window.** It is a top-level item key, so the older jar's existing
+`unknownKeys(s.getKeys(false))` check WARNs on it and `logs_errors` finds it. `potion.effects` does not WARN
+on an older jar: `potion` is already in that jar's `KNOWN_KEYS`, and the nested `KNOWN_POTION_KEYS` check ships
+in *this* commit — so an older jar reads `potion.type`, ignores `effects`, and logs nothing at all. Treating a
+clean log as proof that both keys landed is exactly backwards for the flask: `skywars.vanishing_flask` silently
+becomes a base-type INVISIBILITY splash until the base image carrying this jar reaches the pods. The only
+reliable check during the window is the jar version on the pod, not the log.
 
 ## 2026-08-02 — `vanillaStack` lets a definition opt out of its own identity
 
