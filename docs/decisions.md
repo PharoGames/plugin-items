@@ -4,6 +4,50 @@ Newest first. See workspace CLAUDE.md §6 for the rules. Don't delete rows; mark
 
 ---
 
+## 2026-08-05 — `maxDamage` and `potion.effects`: durability and custom effects as item fields
+
+**What.** Two optional item keys. `maxDamage: <1..32767>` sets the item's durability (`Damageable#setMaxDamage`),
+and `potion.effects: [{type, durationSeconds, amplifier}]` adds custom potion effects
+(`PotionMeta.addCustomEffect(effect, true)`) on top of — or instead of — the existing base `potion.type`. Both
+default to absent, so every definition already on the network builds the identical stack.
+
+**Why.** The SkyWars kit pass needed a Hunting Bow that breaks after 5 shots and a Magician invisibility potion
+lasting 3:00. Neither is expressible today: durability has no field at all, and a base `PotionType` constant
+carries vanilla's own duration, which for Invisibility is 3:00 or 8:00 and nothing between. This is exactly the
+trigger the 2026-07-30 entry below named for adding `potion.effects`, so that entry is now **Resolved** — the
+speculative-surface argument stopped applying the moment a real config needed a duration vanilla has no
+constant for.
+
+**The splash arithmetic, which callers get wrong.** A SPLASH potion applies **0.75x** the configured duration at
+ground zero and less further out, so the 3:00 Magician potion is configured as `durationSeconds: 240`, not 180.
+Lingering is 0.25x per touch and tipped arrows 0.125x on hit; only a drinkable POTION delivers the number as
+written. Documented as a table in `docs/configuration.md` because the number in the YAML never matches the
+number in the game.
+
+**Why the validators take injected lookups.** `Material.getMaxDurability()` and `PotionEffectType` resolution
+are both registry-backed on purpur-api 1.21.11 — headless they throw `IllegalStateException: No RegistryAccess
+implementation found`, so neither can be reached from a unit test. Rather than hardcode a list of damageable
+materials and vanilla effect names (which drifts silently the next time Mojang adds one), the two validators
+take a `ToIntFunction<String>` / `Predicate<String>` and production passes the real registry. Tests stay pure
+and the runtime stays accurate.
+
+**Why `Damageable#setMaxDamage` and not `DataComponentTypes.MAX_DAMAGE`.** Both exist on this API (confirmed by
+`javap` against the pinned `purpur-api-1.21.11-R0.1-SNAPSHOT` jar). The meta route is not `@Experimental`, and it
+self-guards on the meta type the way the neighbouring potion code already does.
+
+**Shipped alongside: nested `potion` keys now WARN too.** `unknownKeys` only ever sees one section's direct
+children, so `effect:` for `effects:` would have been swallowed exactly the way top-level keys were before the
+2026-07-30 fix. The `potion` section now has its own known-key set and its own WARN.
+
+**Blast radius (Tier 2, additive).** `buildItemStack` is HIGH-risk by `gitnexus_impact` — every item on every
+server type flows through it — but both new branches are gated on a null/empty field, so an existing definition
+takes a byte-identical path. No d=1 dependent changed; the builder additions are new optional methods.
+
+**Deploy order.** JAR to R2 → base image rebuild → game image rebuild → *then* the `server-image-skywars` Items
+config that uses the keys. A config that arrives first is safe but degraded: the older jar logs the
+unrecognised-key WARN and builds the item WITHOUT the field — an infinite-durability bow and an effectless
+bottle — which is why the WARN is the thing to grep (`logs_errors`) during the rollout window.
+
 ## 2026-08-02 — `vanillaStack` lets a definition opt out of its own identity
 
 **What.** New optional `vanillaStack: true`. The item is built with no PDC at all — no `logical_id`, no
@@ -51,6 +95,9 @@ express the same potion and no test coverage for the second.
 **If it turns out wrong.** The first request for a duration vanilla has no constant for (e.g. 2:00 Fire
 Resistance) is the trigger to add `potion.effects: [{type, durationSeconds, amplifier}]` alongside `type`,
 applying `PotionMeta.addCustomEffect`. Additive; nothing configured today changes shape.
+
+**Resolved 2026-08-05** — that trigger fired (a 3:00 Invisibility splash potion for the SkyWars Magician kit)
+and `potion.effects` shipped in exactly the shape sketched above. See the 2026-08-05 entry.
 
 **Shipped alongside: unrecognised item keys now WARN.** Adding the first new item field in a while exposed
 that an unknown key was dropped in total silence — so a `potion:` block delivered to a pod running an older

@@ -72,15 +72,29 @@ class PotionTypeValidationTest {
     void flagsOnlyKeysTheLoaderDoesNotRead() {
         assertEquals(List.of(), ItemConfigLoader.unknownKeys(List.of(
                 "logicalId", "material", "displayName", "lore", "itemModel", "customModelData",
-                "enchantmentGlint", "rarity", "maxStackSize", "unbreakable", "enchantments",
+                "enchantmentGlint", "rarity", "maxStackSize", "maxDamage", "unbreakable", "enchantments",
                 "hideTooltip", "hideAdditionalTooltip", "food", "potion",
                 "slot", "locked", "droppable", "movable", "vanillaStack", "metadata")));
 
-        // 'potion' and 'vanillaStack' are readable on this jar, so they must NOT be flagged.
-        assertEquals(List.of(), ItemConfigLoader.unknownKeys(List.of("material", "potion", "vanillaStack")));
+        // 'potion', 'vanillaStack' and 'maxDamage' are readable on this jar, so they must NOT be flagged.
+        assertEquals(List.of(),
+                ItemConfigLoader.unknownKeys(List.of("material", "potion", "vanillaStack", "maxDamage")));
 
         // Typos and fields from a newer config are flagged, sorted, and nothing else is.
         assertEquals(List.of("enchantment", "potions"),
                 ItemConfigLoader.unknownKeys(List.of("material", "potions", "enchantment")));
+    }
+
+    /**
+     * The same skew guard one level down. {@code unknownKeys} only ever sees one section's direct
+     * children, so without a potion-specific known-key set a nested typo ({@code effect:} for
+     * {@code effects:}) would be swallowed exactly the way top-level keys used to be.
+     */
+    @Test
+    void flagsOnlyPotionKeysTheLoaderDoesNotRead() {
+        assertEquals(List.of(), ItemConfigLoader.unknownKeys(
+                List.of("type", "effects"), ItemConfigLoader.KNOWN_POTION_KEYS));
+        assertEquals(List.of("duration", "effect"), ItemConfigLoader.unknownKeys(
+                List.of("type", "effect", "duration"), ItemConfigLoader.KNOWN_POTION_KEYS));
     }
 }

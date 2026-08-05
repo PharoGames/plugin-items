@@ -1,10 +1,13 @@
 package com.pharogames.items.config;
 
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.io.File;
@@ -13,8 +16,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import java.util.logging.Level;
 
 /**
@@ -31,6 +37,15 @@ public class ItemConfigLoader {
     private static final Set<String> POTION_MATERIALS =
             Set.of("POTION", "SPLASH_POTION", "LINGERING_POTION", "TIPPED_ARROW");
 
+    /** Vanilla stores durability as a short, so a larger MAX_DAMAGE cannot round-trip. */
+    private static final int MAX_DAMAGE_CEILING = 32767;
+
+    /** Above this the seconds -> ticks conversion overflows an int and yields a negative duration. */
+    private static final int MAX_EFFECT_SECONDS = Integer.MAX_VALUE / 20;
+
+    /** Vanilla amplifier is a byte: 0 = level I, 255 = level CCLVI. */
+    private static final int MAX_EFFECT_AMPLIFIER = 255;
+
     /**
      * Every key {@link #parseItem} reads. Anything else in an item's section is either a typo
      * ({@code enchantment} for {@code enchantments}) or a field a NEWER config expects from an
@@ -39,9 +54,17 @@ public class ItemConfigLoader {
      */
     private static final Set<String> KNOWN_KEYS = Set.of(
             "logicalId", "material", "displayName", "lore", "itemModel", "customModelData",
-            "enchantmentGlint", "rarity", "maxStackSize", "unbreakable", "enchantments",
+            "enchantmentGlint", "rarity", "maxStackSize", "maxDamage", "unbreakable", "enchantments",
             "hideTooltip", "hideAdditionalTooltip", "food", "potion",
             "slot", "locked", "droppable", "movable", "vanillaStack", "metadata");
+
+    /**
+     * Every key read inside an item's {@code potion} section. Checked separately from
+     * {@link #KNOWN_KEYS} because {@link #unknownKeys} only ever sees one section's direct children,
+     * so a typo nested one level down ({@code effect:} for {@code effects:}) would otherwise be
+     * invisible — the exact silence the top-level warning exists to close.
+     */
+    static final Set<String> KNOWN_POTION_KEYS = Set.of("type", "effects");
 
     private final JavaPlugin plugin;
 
@@ -116,6 +139,153 @@ public class ItemConfigLoader {
         return normalised;
     }
 
+    /**
+     * Validates a {@code maxDamage} value and returns it as an int.
+     *
+     * <p>Throws on every failure so the fail-fast {@link #loadAll()} path aborts server start:
+     * durability is the whole point of the field (a 5-use bow is balance, not decoration), so a
+     * value that silently did nothing would ship an infinite bow into a kit.
+     *
+     * @param rawValue        the configured value, straight out of YAML and not yet typed
+     * @param material        the item's material, used to reject durability on a non-damageable item
+     * @param logicalId       the item id, for the error message
+     * @param maxDurabilityOf resolves a material name to its vanilla max durability (0 = not
+     *                        damageable). Injected because {@code Material.getMaxDurability()} is
+     *                        registry-backed on this API and throws with no server running.
+     */
+    static int validateMaxDamage(Object rawValue, String material, String logicalId,
+                                 ToIntFunction<String> maxDurabilityOf) {
+        long value = wholeNumber(rawValue, "maxDamage", logicalId);
+        if (value < 1 || value > MAX_DAMAGE_CEILING) {
+            throw new IllegalArgumentException("'maxDamage' must be between 1 and " + MAX_DAMAGE_CEILING
+                    + " for item '" + logicalId + "', got: " + value);
+        }
+        // Durability only exists on an item type that can take damage. On anything else the
+        // component is dropped at give-time, so reject it here rather than shipping an item that
+        // reads as configured and behaves vanilla.
+        if (maxDurabilityOf.applyAsInt(material) <= 0) {
+            throw new IllegalArgumentException("Item '" + logicalId + "' sets 'maxDamage' but its material '"
+                    + material + "' is not damageable; durability applies only to tools, weapons, armour "
+                    + "and other item types with a vanilla durability bar.");
+        }
+        return (int) value;
+    }
+
+    /**
+     * Validates a {@code potion.effects} list and returns it as definitions, or an empty list when
+     * no effects are configured.
+     *
+     * <p>Throws on every failure, for the same reason {@link #validatePotionType} does: an effect
+     * that never applied leaves a potion that looks configured in YAML and does nothing in the hand.
+     *
+     * @param rawEffects       the configured list, straight out of YAML
+     * @param material         the item's material, used to reject effects on a non-potion stack
+     * @param logicalId        the item id, for the error message
+     * @param effectTypeExists tells whether an upper-case effect name is a real
+     *                         {@code PotionEffectType}. Injected because that lookup is
+     *                         registry-backed and needs a running server.
+     */
+    static List<ItemDefinition.PotionEffectDef> validatePotionEffects(
+            List<?> rawEffects, String material, String logicalId, Predicate<String> effectTypeExists) {
+        if (rawEffects == null || rawEffects.isEmpty()) {
+            return List.of();
+        }
+        if (material == null || !POTION_MATERIALS.contains(material.trim().toUpperCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Item '" + logicalId + "' sets 'potion.effects' but its material is '"
+                    + material + "'; custom effects apply only to POTION, SPLASH_POTION, LINGERING_POTION, "
+                    + "TIPPED_ARROW.");
+        }
+
+        List<ItemDefinition.PotionEffectDef> effects = new ArrayList<>();
+        for (Object raw : rawEffects) {
+            if (!(raw instanceof Map<?, ?> entry)) {
+                throw new IllegalArgumentException("Every 'potion.effects' entry must be a map of "
+                        + "{type, durationSeconds, amplifier} for item '" + logicalId + "', got: " + raw);
+            }
+
+            Object rawType = entry.get("type");
+            if (rawType == null || rawType.toString().isBlank()) {
+                throw new IllegalArgumentException("'potion.effects[].type' is required for item '"
+                        + logicalId + "'");
+            }
+            String type = rawType.toString().trim().toUpperCase(Locale.ROOT);
+            if (!effectTypeExists.test(type)) {
+                throw new IllegalArgumentException("Unknown potion effect type '" + rawType + "' for item '"
+                        + logicalId + "' -- not a Bukkit PotionEffectType constant (e.g. INVISIBILITY, SPEED, "
+                        + "REGENERATION, FIRE_RESISTANCE).");
+            }
+
+            Object rawDuration = entry.get("durationSeconds");
+            if (rawDuration == null) {
+                throw new IllegalArgumentException("'durationSeconds' is required on the '" + type
+                        + "' entry of 'potion.effects' for item '" + logicalId + "'");
+            }
+            long duration = wholeNumber(rawDuration, "potion.effects[" + type + "].durationSeconds", logicalId);
+            if (duration < 1 || duration > MAX_EFFECT_SECONDS) {
+                throw new IllegalArgumentException("'durationSeconds' on the '" + type + "' entry of "
+                        + "'potion.effects' for item '" + logicalId + "' must be between 1 and "
+                        + MAX_EFFECT_SECONDS + " seconds, got: " + duration);
+            }
+
+            long amplifier = 0;
+            if (entry.get("amplifier") != null) {
+                amplifier = wholeNumber(entry.get("amplifier"), "potion.effects[" + type + "].amplifier", logicalId);
+                if (amplifier < 0 || amplifier > MAX_EFFECT_AMPLIFIER) {
+                    throw new IllegalArgumentException("'amplifier' on the '" + type + "' entry of "
+                            + "'potion.effects' for item '" + logicalId + "' must be between 0 and "
+                            + MAX_EFFECT_AMPLIFIER + " (0 = level I), got: " + amplifier);
+                }
+            }
+
+            effects.add(new ItemDefinition.PotionEffectDef(type, (int) duration, (int) amplifier));
+        }
+        return List.copyOf(effects);
+    }
+
+    /**
+     * Reads a YAML value that must be a whole number. SnakeYAML hands back an Integer or a Long for
+     * one; anything else (a quoted string, a decimal) is a config error worth naming, because
+     * {@code getInt} would quietly turn it into 0 and fail a range check with a value the author
+     * never wrote.
+     */
+    private static long wholeNumber(Object rawValue, String field, String logicalId) {
+        if (rawValue instanceof Integer || rawValue instanceof Long
+                || rawValue instanceof Short || rawValue instanceof Byte) {
+            return ((Number) rawValue).longValue();
+        }
+        throw new IllegalArgumentException("'" + field + "' must be a whole number for item '"
+                + logicalId + "', got: " + rawValue);
+    }
+
+    /**
+     * Resolves a {@code PotionEffectType} constant name (or {@code namespace:key}) to the effect,
+     * returning null when it names nothing. Both callers turn that null into an actionable message:
+     * the loader aborts start, the item manager warns and skips the effect.
+     *
+     * <p>Registry-backed, so it only works with a running server — never call it from a test.
+     */
+    public static PotionEffectType resolveEffectType(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        String key = name.trim().toLowerCase(Locale.ROOT);
+        try {
+            NamespacedKey namespacedKey = key.contains(":")
+                    ? NamespacedKey.fromString(key)
+                    : NamespacedKey.minecraft(key);
+            return namespacedKey != null ? Registry.MOB_EFFECT.get(namespacedKey) : null;
+        } catch (IllegalArgumentException e) {
+            // Not even a well-formed key (spaces, illegal characters) -- same outcome as unknown.
+            return null;
+        }
+    }
+
+    /** Vanilla max durability of a material name, or 0 when the material is not damageable. */
+    private static int vanillaMaxDurability(String material) {
+        Material resolved = Material.matchMaterial(material);
+        return resolved != null ? resolved.getMaxDurability() : 0;
+    }
+
     private FileConfiguration loadConfig() {
         // The configloader writes to plugins/Items/config.yml in the server working dir.
         // saveDefaultConfig() writes the bundled config.yml to the same location if absent.
@@ -182,6 +352,10 @@ public class ItemConfigLoader {
             }
             builder.maxStackSize(size);
         }
+        if (s.contains("maxDamage")) {
+            builder.maxDamage(validateMaxDamage(s.get("maxDamage"), material, logicalId,
+                    ItemConfigLoader::vanillaMaxDurability));
+        }
 
         // Enchantments
         ConfigurationSection enchSection = s.getConfigurationSection("enchantments");
@@ -210,9 +384,30 @@ public class ItemConfigLoader {
         // potion item is only ever useful with a base type; the type also carries the vanilla
         // DURATION (FIRE_RESISTANCE 3:00 vs LONG_FIRE_RESISTANCE 8:00), which is why there is no
         // separate duration field to get out of step with the constant.
+        //
+        // 'effects' covers what a base type cannot: a duration vanilla has no constant for. It may
+        // appear with a base type, or alone.
         ConfigurationSection potionSection = s.getConfigurationSection("potion");
         if (potionSection != null) {
-            builder.potionType(validatePotionType(potionSection.getString("type"), material, logicalId));
+            List<?> rawEffects = potionSection.getList("effects");
+            boolean hasEffects = rawEffects != null && !rawEffects.isEmpty();
+
+            // A potion section carrying neither a base type nor an effect is the empty-bottle bug in
+            // config form, so keep demanding a type unless effects supply the contents.
+            if (potionSection.contains("type") || !hasEffects) {
+                builder.potionType(validatePotionType(potionSection.getString("type"), material, logicalId));
+            }
+            if (hasEffects) {
+                builder.potionEffects(validatePotionEffects(rawEffects, material, logicalId,
+                        type -> resolveEffectType(type) != null));
+            }
+
+            List<String> unknownPotionKeys = unknownKeys(potionSection.getKeys(false), KNOWN_POTION_KEYS);
+            if (!unknownPotionKeys.isEmpty()) {
+                plugin.getLogger().warning("[Items] Item '" + logicalId + "' has unrecognised 'potion' key(s) "
+                        + unknownPotionKeys + " -- ignored. Either a typo, or this config expects a newer "
+                        + "plugin-items than the one running; the potion is built WITHOUT them.");
+            }
         }
 
         ConfigurationSection foodSection = s.getConfigurationSection("food");
@@ -255,9 +450,14 @@ public class ItemConfigLoader {
      * wrong loot mid-match.
      */
     static List<String> unknownKeys(Collection<String> keys) {
+        return unknownKeys(keys, KNOWN_KEYS);
+    }
+
+    /** As {@link #unknownKeys(Collection)}, for a nested section with its own known-key set. */
+    static List<String> unknownKeys(Collection<String> keys, Set<String> knownKeys) {
         List<String> unknown = new ArrayList<>();
         for (String key : keys) {
-            if (!KNOWN_KEYS.contains(key)) {
+            if (!knownKeys.contains(key)) {
                 unknown.add(key);
             }
         }

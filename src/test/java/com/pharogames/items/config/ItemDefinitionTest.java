@@ -90,6 +90,38 @@ class ItemDefinitionTest {
                 .vanillaStack(true).movable(false).build());
     }
 
+    /**
+     * The back-compat guard for the maxDamage / potion.effects additions: a definition that names
+     * neither must be byte-identical to what it was before those fields existed, so every config
+     * already on the network keeps building the same item.
+     */
+    @Test
+    void newOptionalFields_defaultToAbsent() {
+        ItemDefinition def = ItemDefinition.builder("skywars.hunting_bow", "BOW")
+                .displayName("<gold>Hunting Bow")
+                .build();
+        assertEquals(null, def.getMaxDamage(), "maxDamage must stay unset when not configured");
+        assertTrue(def.getPotionEffects().isEmpty(), "potionEffects must stay empty when not configured");
+        assertEquals(null, def.getPotionType());
+    }
+
+    @Test
+    void potionEffects_areAnImmutableSnapshot() {
+        List<ItemDefinition.PotionEffectDef> mutable = new java.util.ArrayList<>(
+                List.of(new ItemDefinition.PotionEffectDef("INVISIBILITY", 240, 0)));
+        ItemDefinition def = ItemDefinition.builder("skywars.vanishing_flask", "SPLASH_POTION")
+                .potionEffects(mutable).build();
+        mutable.clear();
+        assertEquals(1, def.getPotionEffects().size(), "definition effects must be an immutable snapshot");
+        assertThrows(UnsupportedOperationException.class, () -> def.getPotionEffects().clear());
+    }
+
+    @Test
+    void potionEffect_convertsSecondsToTicks() {
+        // 240s of Invisibility -> 4800 ticks; a SPLASH potion applies 0.75x of that = 3:00.
+        assertEquals(4800, new ItemDefinition.PotionEffectDef("INVISIBILITY", 240, 0).getDurationTicks());
+    }
+
     @Test
     void customModelData_nullListsBecomeEmpty() {
         ItemDefinition.CustomModelDataDef cmd =

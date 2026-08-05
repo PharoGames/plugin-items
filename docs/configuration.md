@@ -60,6 +60,8 @@ items:
     enchantmentGlint: true             # -> ENCHANTMENT_GLINT_OVERRIDE (boolean)
     rarity: RARE                       # -> RARITY: COMMON | UNCOMMON | RARE | EPIC
     maxStackSize: 1                    # -> MAX_STACK_SIZE (1-99)
+    maxDamage: 5                       # -> MAX_DAMAGE (durability). Damageable materials only;
+                                       #    a BOW with 5 breaks after 5 shots. 1-32767.
     unbreakable: true                  # -> UNBREAKABLE (non-valued component)
     enchantments:                      # -> ENCHANTMENTS
       sharpness: 5
@@ -69,6 +71,10 @@ items:
                                        #    ENCHANTMENTS, STORED_ENCHANTMENTS, and UNBREAKABLE from tooltip)
     potion:                             # Optional. POTION / SPLASH_POTION / LINGERING_POTION / TIPPED_ARROW only
       type: FIRE_RESISTANCE             # Bukkit PotionType constant -> PotionMeta.setBasePotionType
+      effects:                          # Optional. Custom effects -> PotionMeta.addCustomEffect.
+        - type: INVISIBILITY            #   Bukkit PotionEffectType constant
+          durationSeconds: 240          #   Seconds (x20 -> ticks). SPLASH applies 0.75x: 240 -> 3:00
+          amplifier: 0                  #   Optional, 0-255, default 0 (= level I)
 
     food:                               # Optional. -> FOOD (FoodProperties); overrides type defaults on this stack
       nutrition: 0                      # Hunger points restored (0 = none)
@@ -124,9 +130,71 @@ Any Bukkit `PotionType` constant works (`SWIFTNESS`, `LONG_SWIFTNESS`, `STRONG_H
   vanilla.
 - An unknown constant is likewise rejected at load, naming the item and the bad value.
 - Values are case-insensitive; `fire_resistance` and `FIRE_RESISTANCE` are the same type.
-- Custom (non-vanilla) effect/duration combinations are not supported — only base types.
 - `displayName`/`lore` still apply. Leave them out and the potion reads as the plain vanilla item, which is what
   loot-pool potions want.
+
+#### Custom effects
+
+`potion.effects` covers what a base type cannot: a duration vanilla has no constant for. Each entry becomes a
+`PotionMeta.addCustomEffect`, and may appear with or without `potion.type`.
+
+```yaml
+skywars_vanishing_flask:
+  logicalId: skywars.vanishing_flask
+  material: SPLASH_POTION
+  potion:
+    effects:
+      - type: INVISIBILITY
+        durationSeconds: 240      # 3:00 on the player it lands on -- see the splash maths below
+        amplifier: 0              # optional, 0-255, default 0 (= level I)
+```
+
+**A SPLASH potion applies 0.75x the configured duration at ground zero**, and less the further a player is from
+the impact point. So the number to configure is the duration you want *divided by 0.75*: `durationSeconds: 240`
+yields 3:00 on the player it lands on, not 4:00. Only a drinkable `POTION` applies the number as written — every
+delivery mechanism scales it, and by a different factor:
+
+| Material | Vanilla factor | Configured 240s delivers |
+|---|---|---|
+| `POTION` (drink) | 1x | 4:00 |
+| `SPLASH_POTION` (direct hit) | 0.75x | **3:00** |
+| `LINGERING_POTION` (per touch of the cloud) | 0.25x | 1:00, reapplied |
+| `TIPPED_ARROW` (on hit) | 0.125x | 0:30 |
+
+Custom effects **layer on top of** `potion.type` rather than replacing it — a potion with both applies both. When
+the two name the same effect, the player ends up with one instance of it: the longer (or stronger) wins, and the
+other is kept hidden until it does. Two entries in the same `effects` list naming one type are collapsed at build
+time, last entry wins.
+
+Rules, all **rejected at load** naming the item and the bad value, for the same reason a bad `potion.type` is —
+an effect that never applied leaves a potion that reads as configured in YAML and does nothing in the hand:
+
+- Valid only on `POTION`, `SPLASH_POTION`, `LINGERING_POTION`, `TIPPED_ARROW`.
+- `type` must be a Bukkit `PotionEffectType` constant (case-insensitive), and is required on every entry.
+- `durationSeconds` must be a positive whole number (and small enough that `x20` fits in an int).
+- `amplifier` must be 0–255. `0` is level I, `1` is level II.
+
+Prefer a base `type` when a constant already carries the duration you want — it is one line, and it is what the
+vanilla item shows in its tooltip.
+
+### Durability (`maxDamage`)
+
+`maxDamage` overrides the item type's durability bar, which is how a kit ships a deliberately fragile tool:
+
+```yaml
+skywars_hunting_bow:
+  logicalId: skywars.hunting_bow
+  material: BOW
+  maxDamage: 5        # breaks after 5 shots (vanilla BOW is 384)
+```
+
+- Valid only on a **damageable** material (one with a vanilla durability bar). On anything else — food, blocks,
+  a spawn egg — the item is **rejected at load** and the server aborts, rather than shipping a stack that reads
+  as configured and behaves vanilla.
+- Must be 1–32767 (vanilla stores durability as a short). A non-integer, `0`, or a negative is rejected at load
+  naming the item and the value.
+- Independent of `unbreakable`, which is the opposite request. Setting both leaves an item that cannot be
+  damaged, so the durability is decoration — don't.
 
 ### `vanillaStack` — plain ingredients that stack with vanilla
 
@@ -165,6 +233,10 @@ Any key in an item's section that the loader does not read is logged once at sta
 [Items] Item 'skywars.fire_resistance_potion' has unrecognised config key(s) [potion] -- ignored.
 Either a typo, or this config expects a newer plugin-items than the one running; the item is built WITHOUT them.
 ```
+
+The `potion` section gets the same treatment one level down (`[Items] Item '...' has unrecognised 'potion'
+key(s) [effect]`), because the top-level check only ever sees an item's direct keys — a typo nested inside
+`potion:` would otherwise be swallowed exactly the way top-level keys used to be.
 
 It warns rather than aborts. plugin-items is baked into the shared base image while its config ships through
 config-service, so a config can legitimately reach a pod minutes before the jar that understands it; aborting
