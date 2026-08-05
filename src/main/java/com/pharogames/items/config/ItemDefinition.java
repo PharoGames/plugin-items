@@ -281,8 +281,10 @@ public class ItemDefinition {
          * Duration in ticks, the unit {@code PotionEffect} takes. Config is authored in seconds
          * because that is what a kit or loot table is specified in.
          *
-         * <p>A SPLASH potion delivers only 0.75x of this at ground zero (less further out), so a
-         * 3:00 effect on the player it lands on is configured as {@code durationSeconds: 240}.
+         * <p>Delivered as written. A SPLASH potion applies the FULL duration to an entity it hits
+         * and to anyone at the impact point — the pre-1.9 "splash lasts 3/4 as long" rule was
+         * removed in 15w31a. Distance is what scales a splash: linearly down to nothing at 4
+         * blocks. So a 3:00 effect is {@code durationSeconds: 180}, not 240.
          */
         public int getDurationTicks() { return durationSeconds * 20; }
     }

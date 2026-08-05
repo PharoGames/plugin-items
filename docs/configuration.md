@@ -73,7 +73,7 @@ items:
       type: FIRE_RESISTANCE             # Bukkit PotionType constant -> PotionMeta.setBasePotionType
       effects:                          # Optional. Custom effects -> PotionMeta.addCustomEffect.
         - type: INVISIBILITY            #   Bukkit PotionEffectType constant
-          durationSeconds: 240          #   Seconds (x20 -> ticks). SPLASH applies 0.75x: 240 -> 3:00
+          durationSeconds: 180          #   Seconds (x20 -> ticks). Delivered as written; see Potions
           amplifier: 0                  #   Optional, 0-255, default 0 (= level I)
 
     food:                               # Optional. -> FOOD (FoodProperties); overrides type defaults on this stack
@@ -145,21 +145,25 @@ skywars_vanishing_flask:
   potion:
     effects:
       - type: INVISIBILITY
-        durationSeconds: 240      # 3:00 on the player it lands on -- see the splash maths below
+        durationSeconds: 180      # 3:00 at the impact point -- see the splash maths below
         amplifier: 0              # optional, 0-255, default 0 (= level I)
 ```
 
-**A SPLASH potion applies 0.75x the configured duration at ground zero**, and less the further a player is from
-the impact point. So the number to configure is the duration you want *divided by 0.75*: `durationSeconds: 240`
-yields 3:00 on the player it lands on, not 4:00. Only a drinkable `POTION` applies the number as written — every
-delivery mechanism scales it, and by a different factor:
+**A SPLASH potion applies the FULL configured duration**, both to an entity it hits directly and to anyone
+standing at the impact point. Write the duration you want the player to get. The old "splash potions last 3/4
+as long" rule was removed in 15w31a and has not applied since 1.9 — do not divide by 0.75.
 
-| Material | Vanilla factor | Configured 240s delivers |
+What *does* scale a splash is distance: the duration falls off linearly with range from the impact, reaching
+nothing at 4 blocks, and an effect scaled below 1 second is not applied at all. A potion thrown at your own feet
+is at range ~0, so the thrower gets the number as written.
+
+| Material | Vanilla factor | Configured 180s delivers |
 |---|---|---|
-| `POTION` (drink) | 1x | 4:00 |
-| `SPLASH_POTION` (direct hit) | 0.75x | **3:00** |
-| `LINGERING_POTION` (per touch of the cloud) | 0.25x | 1:00, reapplied |
-| `TIPPED_ARROW` (on hit) | 0.125x | 0:30 |
+| `POTION` (drink) | 1x | 3:00 |
+| `SPLASH_POTION` (direct hit, or at the impact point) | 1x | **3:00** |
+| `SPLASH_POTION` (2 blocks from the impact) | ~0.5x | ~1:30 |
+| `LINGERING_POTION` (per touch of the cloud) | 0.25x | 0:45, reapplied |
+| `TIPPED_ARROW` (on hit) | 0.125x | 0:22 |
 
 Custom effects **layer on top of** `potion.type` rather than replacing it — a potion with both applies both. When
 the two name the same effect, the player ends up with one instance of it: the longer (or stronger) wins, and the

@@ -108,7 +108,7 @@ class ItemDefinitionTest {
     @Test
     void potionEffects_areAnImmutableSnapshot() {
         List<ItemDefinition.PotionEffectDef> mutable = new java.util.ArrayList<>(
-                List.of(new ItemDefinition.PotionEffectDef("INVISIBILITY", 240, 0)));
+                List.of(new ItemDefinition.PotionEffectDef("INVISIBILITY", 180, 0)));
         ItemDefinition def = ItemDefinition.builder("skywars.vanishing_flask", "SPLASH_POTION")
                 .potionEffects(mutable).build();
         mutable.clear();
@@ -118,8 +118,8 @@ class ItemDefinitionTest {
 
     @Test
     void potionEffect_convertsSecondsToTicks() {
-        // 240s of Invisibility -> 4800 ticks; a SPLASH potion applies 0.75x of that = 3:00.
-        assertEquals(4800, new ItemDefinition.PotionEffectDef("INVISIBILITY", 240, 0).getDurationTicks());
+        // 180s of Invisibility -> 3600 ticks, delivered as written by a SPLASH at the impact point.
+        assertEquals(3600, new ItemDefinition.PotionEffectDef("INVISIBILITY", 180, 0).getDurationTicks());
     }
 
     @Test

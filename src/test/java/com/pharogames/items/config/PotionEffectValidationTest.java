@@ -43,15 +43,15 @@ class PotionEffectValidationTest {
     @Test
     void parsesEffectAndConvertsSecondsToTicks() {
         List<ItemDefinition.PotionEffectDef> effects = ItemConfigLoader.validatePotionEffects(
-                List.of(effect("INVISIBILITY", 240, null)),
+                List.of(effect("INVISIBILITY", 180, null)),
                 "SPLASH_POTION", "skywars.vanishing_flask", EFFECT_EXISTS);
 
         assertEquals(1, effects.size());
         ItemDefinition.PotionEffectDef def = effects.get(0);
         assertEquals("INVISIBILITY", def.getType());
-        assertEquals(240, def.getDurationSeconds());
-        // 240s -> 4800 ticks. A SPLASH potion delivers 0.75x of that at ground zero = 3:00.
-        assertEquals(4800, def.getDurationTicks());
+        assertEquals(180, def.getDurationSeconds());
+        // 180s -> 3600 ticks, delivered as written by a SPLASH at the impact point.
+        assertEquals(3600, def.getDurationTicks());
         assertEquals(0, def.getAmplifier(), "amplifier defaults to 0 (level I)");
     }
 
@@ -192,7 +192,7 @@ class PotionEffectValidationTest {
                 "potion:",
                 "  effects:",
                 "    - type: INVISIBILITY",
-                "      durationSeconds: 240"));
+                "      durationSeconds: 180"));
 
         ConfigurationSection potion = config.getConfigurationSection("potion");
         assertEquals(List.of(), ItemConfigLoader.unknownKeys(
@@ -202,7 +202,7 @@ class PotionEffectValidationTest {
                 potion.getList("effects"), "SPLASH_POTION", "skywars.vanishing_flask", EFFECT_EXISTS);
         assertEquals(1, effects.size());
         assertEquals("INVISIBILITY", effects.get(0).getType());
-        assertEquals(4800, effects.get(0).getDurationTicks());
+        assertEquals(3600, effects.get(0).getDurationTicks());
     }
 
     @Test
@@ -211,5 +211,67 @@ class PotionEffectValidationTest {
                 ItemConfigLoader.validatePotionEffects(List.of("INVISIBILITY"),
                         "POTION", "skywars.shorthand", EFFECT_EXISTS));
         assertTrue(e.getMessage().contains("skywars.shorthand"), e.getMessage());
+    }
+
+    /** Parses {@code potion:} out of a YAML string the way a delivered config would arrive. */
+    private static ConfigurationSection potionSectionOf(String... lines) throws Exception {
+        YamlConfiguration config = new YamlConfiguration();
+        config.options().pathSeparator('\0');
+        config.loadFromString(String.join("\n", lines));
+        return config.getConfigurationSection("potion");
+    }
+
+    @Test
+    void effectsWrittenAsAMapIsRejectedRatherThanSilentlyDropped() throws Exception {
+        // The likeliest authoring slip: every OTHER section in this config (enchantments, food,
+        // metadata, customModelData) IS a map, so reaching for one here is natural. getList returns
+        // null for a MemorySection, and 'effects' is a KNOWN potion key so the unrecognised-key WARN
+        // cannot fire — without this guard the flask ships as an effectless bottle, silently.
+        ConfigurationSection potion = potionSectionOf(
+                "material: SPLASH_POTION",
+                "potion:",
+                "  type: INVISIBILITY",
+                "  effects:",
+                "    invis:",
+                "      type: INVISIBILITY",
+                "      durationSeconds: 180");
+
+        assertEquals(List.of(), ItemConfigLoader.unknownKeys(
+                potion.getKeys(false), ItemConfigLoader.KNOWN_POTION_KEYS),
+                "'effects' is a known key, so the WARN cannot catch this shape");
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> ItemConfigLoader.requireEffectsList(potion, "skywars.vanishing_flask"));
+        assertTrue(e.getMessage().contains("skywars.vanishing_flask"), e.getMessage());
+        assertTrue(e.getMessage().contains("LIST"), e.getMessage());
+    }
+
+    @Test
+    void effectsWrittenAsAScalarIsRejected() throws Exception {
+        ConfigurationSection potion = potionSectionOf(
+                "material: SPLASH_POTION",
+                "potion:",
+                "  effects: INVISIBILITY");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ItemConfigLoader.requireEffectsList(potion, "skywars.scalar_flask"));
+    }
+
+    @Test
+    void aRealListPassesTheGuardAndAnAbsentKeyReturnsNull() throws Exception {
+        ConfigurationSection listed = potionSectionOf(
+                "material: SPLASH_POTION",
+                "potion:",
+                "  effects:",
+                "    - type: INVISIBILITY",
+                "      durationSeconds: 180");
+        assertEquals(1, ItemConfigLoader.requireEffectsList(listed, "skywars.vanishing_flask").size());
+
+        ConfigurationSection bare = potionSectionOf(
+                "material: POTION",
+                "potion:",
+                "  type: FIRE_RESISTANCE");
+        assertEquals(null, ItemConfigLoader.requireEffectsList(bare, "skywars.fire_resistance_potion"),
+                "an absent 'effects' key is not an error -- base-type-only potions are the common case");
     }
 }

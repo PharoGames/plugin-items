@@ -243,6 +243,32 @@ public class ItemConfigLoader {
     }
 
     /**
+     * The {@code potion.effects} list, or null when the key is absent.
+     *
+     * <p>Exists because {@code getList} returns null for anything that is not a YAML list, and the
+     * two shapes an author is most likely to reach for by mistake are both non-lists: a bare scalar
+     * ({@code effects: INVISIBILITY}), and the map-of-maps that every OTHER section in this config
+     * uses ({@code enchantments}, {@code food}, {@code metadata}, {@code customModelData}).
+     *
+     * <p>Left unguarded that null silently disables the whole effects block, and because
+     * {@code effects} IS a known potion key the unrecognised-key WARN cannot fire either — so the
+     * item builds with its base type, no custom contents, and no log line anywhere. An invisibility
+     * flask that reads as configured in YAML and does nothing in the hand is exactly the silent
+     * degradation the rest of this validation exists to prevent, so this throws instead.
+     */
+    static List<?> requireEffectsList(ConfigurationSection potionSection, String logicalId) {
+        List<?> rawEffects = potionSection.getList("effects");
+        if (rawEffects == null && potionSection.contains("effects")) {
+            throw new IllegalArgumentException("'potion.effects' must be a YAML LIST of "
+                    + "{type, durationSeconds, amplifier} entries for item '" + logicalId
+                    + "', got: " + potionSection.get("effects") + ". Write it as a list:\n"
+                    + "  potion:\n    effects:\n      - type: INVISIBILITY\n"
+                    + "        durationSeconds: 180");
+        }
+        return rawEffects;
+    }
+
+    /**
      * Reads a YAML value that must be a whole number. SnakeYAML hands back an Integer or a Long for
      * one; anything else (a quoted string, a decimal) is a config error worth naming, because
      * {@code getInt} would quietly turn it into 0 and fail a range check with a value the author
@@ -389,7 +415,7 @@ public class ItemConfigLoader {
         // appear with a base type, or alone.
         ConfigurationSection potionSection = s.getConfigurationSection("potion");
         if (potionSection != null) {
-            List<?> rawEffects = potionSection.getList("effects");
+            List<?> rawEffects = requireEffectsList(potionSection, logicalId);
             boolean hasEffects = rawEffects != null && !rawEffects.isEmpty();
 
             // A potion section carrying neither a base type nor an effect is the empty-bottle bug in

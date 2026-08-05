@@ -18,11 +18,14 @@ trigger the 2026-07-30 entry below named for adding `potion.effects`, so that en
 speculative-surface argument stopped applying the moment a real config needed a duration vanilla has no
 constant for.
 
-**The splash arithmetic, which callers get wrong.** A SPLASH potion applies **0.75x** the configured duration at
-ground zero and less further out, so the 3:00 Magician potion is configured as `durationSeconds: 240`, not 180.
-Lingering is 0.25x per touch and tipped arrows 0.125x on hit; only a drinkable POTION delivers the number as
-written. Documented as a table in `docs/configuration.md` because the number in the YAML never matches the
-number in the game.
+**The splash arithmetic, which callers get wrong — including the first version of this entry.** A SPLASH potion
+applies the **full** configured duration, to an entity it hits directly and to anyone at the impact point, so
+the 3:00 Magician potion is `durationSeconds: 180`. The widely-repeated "splash potions last 3/4 as long" rule
+was removed in **15w31a** and has not been true since 1.9; this change shipped its first draft with 240 and a
+0.75x table, which would have handed the Magician 4:00. What genuinely scales a splash is *distance* — duration
+falls off linearly to nothing at 4 blocks — which is invisible to anyone reading only the YAML. Lingering is
+0.25x per touch and tipped arrows 0.125x on hit. Documented as a table in `docs/configuration.md`, with the
+15w31a note attached, so the next author does not re-derive the pre-1.9 rule from memory the way this one did.
 
 **Why the validators take injected lookups.** `Material.getMaxDurability()` and `PotionEffectType` resolution
 are both registry-backed on purpur-api 1.21.11 — headless they throw `IllegalStateException: No RegistryAccess
