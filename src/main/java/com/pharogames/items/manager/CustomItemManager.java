@@ -2,6 +2,7 @@ package com.pharogames.items.manager;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
 import com.pharogames.items.api.GiveOptions;
+import com.pharogames.items.config.ItemConfigLoader;
 import com.pharogames.items.config.ItemDefinition;
 import com.pharogames.items.registry.ItemRegistry;
 import io.papermc.paper.datacomponent.DataComponentTypes;
@@ -21,9 +22,12 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemRarity;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -243,6 +247,23 @@ public class CustomItemManager {
             item.setData(DataComponentTypes.MAX_STACK_SIZE, def.getMaxStackSize());
         }
 
+        // --- MAX_DAMAGE (durability, e.g. a bow that breaks after 5 shots) ---
+        // Uses the stable Damageable meta rather than the experimental MAX_DAMAGE data component:
+        // both exist on this API, this one is not @Experimental and self-guards on the meta type.
+        // Config-loaded definitions are validated in ItemConfigLoader; runtime-registered ones are
+        // not, so a non-damageable material warns and keeps vanilla durability rather than failing
+        // the give.
+        if (def.getMaxDamage() != null) {
+            ItemMeta meta = item.getItemMeta();
+            if (material.getMaxDurability() > 0 && meta instanceof Damageable damageable) {
+                damageable.setMaxDamage(def.getMaxDamage());
+                item.setItemMeta(meta);
+            } else {
+                plugin.getLogger().warning("[Items] Item '" + def.getLogicalId() + "' sets maxDamage but "
+                        + "material '" + def.getMaterial() + "' is not damageable -- maxDamage ignored.");
+            }
+        }
+
         // --- UNBREAKABLE (NonValued -- just flag it as present) ---
         if (def.isUnbreakable()) {
             item.setData(DataComponentTypes.UNBREAKABLE);
@@ -269,19 +290,34 @@ public class CustomItemManager {
         // Config-loaded definitions are validated in ItemConfigLoader; runtime-registered ones are
         // not, so a bad type or a non-potion material warns and leaves the stack otherwise intact
         // rather than killing the give.
-        if (def.getPotionType() != null) {
+        if (def.getPotionType() != null || !def.getPotionEffects().isEmpty()) {
             ItemMeta meta = item.getItemMeta();
             if (meta instanceof PotionMeta potionMeta) {
-                try {
-                    potionMeta.setBasePotionType(PotionType.valueOf(def.getPotionType().toUpperCase()));
-                    item.setItemMeta(potionMeta);
-                } catch (IllegalArgumentException e) {
-                    plugin.getLogger().warning("[Items] Unknown potion type '" + def.getPotionType() +
-                            "' for item '" + def.getLogicalId() + "'");
+                if (def.getPotionType() != null) {
+                    try {
+                        potionMeta.setBasePotionType(PotionType.valueOf(def.getPotionType().toUpperCase()));
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLogger().warning("[Items] Unknown potion type '" + def.getPotionType() +
+                                "' for item '" + def.getLogicalId() + "'");
+                    }
                 }
+                // Custom effects layer on top of the base type. addCustomEffect(effect, true)
+                // overwrites an earlier custom effect of the same type, so the last entry in config
+                // wins rather than two instances of one effect landing on the stack.
+                for (ItemDefinition.PotionEffectDef effect : def.getPotionEffects()) {
+                    PotionEffectType type = ItemConfigLoader.resolveEffectType(effect.getType());
+                    if (type == null) {
+                        plugin.getLogger().warning("[Items] Unknown potion effect type '" + effect.getType() +
+                                "' for item '" + def.getLogicalId() + "' -- effect skipped.");
+                        continue;
+                    }
+                    potionMeta.addCustomEffect(
+                            new PotionEffect(type, effect.getDurationTicks(), effect.getAmplifier()), true);
+                }
+                item.setItemMeta(potionMeta);
             } else {
-                plugin.getLogger().warning("[Items] Item '" + def.getLogicalId() + "' sets a potion type but "
-                        + "material '" + def.getMaterial() + "' has no PotionMeta -- potion type ignored.");
+                plugin.getLogger().warning("[Items] Item '" + def.getLogicalId() + "' sets potion contents but "
+                        + "material '" + def.getMaterial() + "' has no PotionMeta -- potion contents ignored.");
             }
         }
 

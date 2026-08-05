@@ -26,6 +26,11 @@ public class ItemDefinition {
     private final Boolean enchantmentGlint;
     private final String rarity;
     private final Integer maxStackSize;
+    /**
+     * When non-null, overrides the item type's durability (MAX_DAMAGE). A BOW with {@code 5} breaks
+     * after five shots. Null on every item that keeps its vanilla durability.
+     */
+    private final Integer maxDamage;
     private final boolean unbreakable;
     private final Map<String, Integer> enchantments;
     private final boolean hideTooltip;
@@ -64,6 +69,13 @@ public class ItemDefinition {
      */
     private final String potionType;
 
+    /**
+     * Custom potion effects layered on top of {@link #potionType}, empty for every other item.
+     * Each entry names a Bukkit {@code PotionEffectType} plus an explicit duration, which is how a
+     * potion expresses a duration vanilla has no {@code PotionType} constant for.
+     */
+    private final List<PotionEffectDef> potionEffects;
+
     private ItemDefinition(Builder builder) {
         this.logicalId = builder.logicalId;
         this.material = builder.material;
@@ -74,6 +86,7 @@ public class ItemDefinition {
         this.enchantmentGlint = builder.enchantmentGlint;
         this.rarity = builder.rarity;
         this.maxStackSize = builder.maxStackSize;
+        this.maxDamage = builder.maxDamage;
         this.unbreakable = builder.unbreakable;
         this.enchantments = Map.copyOf(builder.enchantments);
         this.hideTooltip = builder.hideTooltip;
@@ -86,6 +99,7 @@ public class ItemDefinition {
         this.metadata = Map.copyOf(builder.metadata);
         this.food = builder.food;
         this.potionType = builder.potionType;
+        this.potionEffects = List.copyOf(builder.potionEffects);
     }
 
     public String getLogicalId() { return logicalId; }
@@ -97,6 +111,7 @@ public class ItemDefinition {
     public Boolean getEnchantmentGlint() { return enchantmentGlint; }
     public String getRarity() { return rarity; }
     public Integer getMaxStackSize() { return maxStackSize; }
+    public Integer getMaxDamage() { return maxDamage; }
     public boolean isUnbreakable() { return unbreakable; }
     public Map<String, Integer> getEnchantments() { return enchantments; }
     public boolean isHideTooltip() { return hideTooltip; }
@@ -109,6 +124,8 @@ public class ItemDefinition {
     public Map<String, Object> getMetadata() { return metadata; }
     public FoodDef getFood() { return food; }
     public String getPotionType() { return potionType; }
+    /** Never null; empty for every item that configures no custom effects. */
+    public List<PotionEffectDef> getPotionEffects() { return potionEffects; }
 
     public static Builder builder(String logicalId, String material) {
         return new Builder(logicalId, material);
@@ -125,6 +142,7 @@ public class ItemDefinition {
         private Boolean enchantmentGlint = null;
         private String rarity = null;
         private Integer maxStackSize = null;
+        private Integer maxDamage = null;
         private boolean unbreakable = false;
         private Map<String, Integer> enchantments = new HashMap<>();
         private boolean hideTooltip = false;
@@ -137,6 +155,7 @@ public class ItemDefinition {
         private Map<String, Object> metadata = new HashMap<>();
         private FoodDef food = null;
         private String potionType = null;
+        private List<PotionEffectDef> potionEffects = new ArrayList<>();
 
         private Builder(String logicalId, String material) {
             this.logicalId = logicalId;
@@ -150,6 +169,12 @@ public class ItemDefinition {
         public Builder enchantmentGlint(Boolean glint) { this.enchantmentGlint = glint; return this; }
         public Builder rarity(String rarity) { this.rarity = rarity; return this; }
         public Builder maxStackSize(Integer maxStackSize) { this.maxStackSize = maxStackSize; return this; }
+        /**
+         * Overrides the item type's durability (MAX_DAMAGE). Only meaningful on a damageable
+         * material; config-loaded definitions are rejected at load otherwise, runtime-registered
+         * ones warn and keep vanilla durability.
+         */
+        public Builder maxDamage(Integer maxDamage) { this.maxDamage = maxDamage; return this; }
         public Builder unbreakable(boolean unbreakable) { this.unbreakable = unbreakable; return this; }
         public Builder enchantments(Map<String, Integer> enchantments) { this.enchantments = enchantments; return this; }
         public Builder hideTooltip(boolean hideTooltip) { this.hideTooltip = hideTooltip; return this; }
@@ -176,6 +201,15 @@ public class ItemDefinition {
          * with a warning at build time.
          */
         public Builder potionType(String potionType) { this.potionType = potionType; return this; }
+        /**
+         * Sets custom potion effects layered on top of the base {@link #potionType(String)}. Use this
+         * for a duration vanilla has no {@code PotionType} constant for; the constant is still the
+         * better answer when one exists.
+         */
+        public Builder potionEffects(List<PotionEffectDef> potionEffects) {
+            this.potionEffects = potionEffects != null ? potionEffects : new ArrayList<>();
+            return this;
+        }
 
         public ItemDefinition build() {
             if (logicalId == null || logicalId.isBlank()) {
@@ -217,6 +251,42 @@ public class ItemDefinition {
         public List<Float> getFloats() { return floats; }
         public List<Boolean> getFlags() { return flags; }
         public List<Integer> getColors() { return colors; }
+    }
+
+    /**
+     * One custom potion effect: a Bukkit {@code PotionEffectType} constant name plus an explicit
+     * duration and amplifier. Unlike a base {@code PotionType}, which carries vanilla's own duration,
+     * this is how a config expresses a duration vanilla has no constant for (a 4:00 Invisibility).
+     *
+     * <p>Holds the type as a STRING on purpose: resolving it needs the server's effect registry,
+     * which does not exist while config is being parsed in a unit test. Resolution happens once, in
+     * {@link com.pharogames.items.manager.CustomItemManager}, at build time.
+     */
+    public static final class PotionEffectDef {
+        private final String type;
+        private final int durationSeconds;
+        private final int amplifier;
+
+        public PotionEffectDef(String type, int durationSeconds, int amplifier) {
+            this.type = type;
+            this.durationSeconds = durationSeconds;
+            this.amplifier = amplifier;
+        }
+
+        public String getType() { return type; }
+        public int getDurationSeconds() { return durationSeconds; }
+        public int getAmplifier() { return amplifier; }
+
+        /**
+         * Duration in ticks, the unit {@code PotionEffect} takes. Config is authored in seconds
+         * because that is what a kit or loot table is specified in.
+         *
+         * <p>Delivered as written. A SPLASH potion applies the FULL duration to an entity it hits
+         * and to anyone at the impact point — the pre-1.9 "splash lasts 3/4 as long" rule was
+         * removed in 15w31a. Distance is what scales a splash: linearly down to nothing at 4
+         * blocks. So a 3:00 effect is {@code durationSeconds: 180}, not 240.
+         */
+        public int getDurationTicks() { return durationSeconds * 20; }
     }
 
     /**
