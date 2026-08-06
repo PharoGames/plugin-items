@@ -315,6 +315,18 @@ public class CustomItemManager {
                             new PotionEffect(type, effect.getDurationTicks(), effect.getAmplifier()), true);
                 }
                 item.setItemMeta(potionMeta);
+                // A potion names ITSELF from its contents ("Splash Potion of Invisibility"), and that
+                // name beats the ITEM_NAME set above -- so a potion is the one material where the
+                // configured displayName never reaches the client. CUSTOM_NAME is the only name that
+                // outranks it, so re-apply the display name here, after the meta round trip that
+                // writes the contents. ITALIC=false because CUSTOM_NAME renders italic by default
+                // and ITEM_NAME does not; without it every potion's name would suddenly slant.
+                // Only potions take this path -- every other material keeps ITEM_NAME alone.
+                if (def.getDisplayName() != null) {
+                    item.setData(DataComponentTypes.CUSTOM_NAME,
+                            miniMessage.deserialize(def.getDisplayName())
+                                    .decoration(TextDecoration.ITALIC, false));
+                }
             } else {
                 plugin.getLogger().warning("[Items] Item '" + def.getLogicalId() + "' sets potion contents but "
                         + "material '" + def.getMaterial() + "' has no PotionMeta -- potion contents ignored.");

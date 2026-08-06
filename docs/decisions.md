@@ -4,6 +4,29 @@ Newest first. See workspace CLAUDE.md §6 for the rules. Don't delete rows; mark
 
 ---
 
+## 2026-08-06 — A potion's `displayName` ships as CUSTOM_NAME, because ITEM_NAME never reached the client
+
+**What.** `CustomItemManager.buildItemStack` now re-applies `displayName` as `CUSTOM_NAME` (italic forced off)
+for potion materials, after the `PotionMeta` round trip that writes the contents. `ITEM_NAME` is still set and
+is still what every other material uses; potions get both.
+
+**Why.** A potion computes its own name from its contents, and that computed name outranks `ITEM_NAME` — so
+`skywars.vanishing_flask` reached players as "Splash Potion of Invisibility" rather than "Vanishing Flask", and
+the SkyWars kit selector, whose Magician icon is a bare `SPLASH_POTION`, read "Splash Potion of Water". Every
+other material honours `ITEM_NAME`, which is why this went unnoticed until a kit was built out of a potion.
+`CUSTOM_NAME` is the only name a potion cannot talk over.
+
+**Why not switch everything to CUSTOM_NAME.** `ITEM_NAME` was chosen deliberately (2026 item pass) because it
+never renders italic and cannot be stripped by an anvil rename. Both still hold for every non-potion material,
+and widening the change would put an italic default on several hundred live item definitions to fix four
+potions. Scoped to the materials that actually need it.
+
+**The cosmetic cost, stated.** A potion now carries two name components. They render identically —
+`CUSTOM_NAME` wins and italic is off — so nothing is visible in the tooltip, but a plugin reading `ITEM_NAME`
+back off a potion stack is reading a value the client is not showing. Nothing does today.
+
+---
+
 ## 2026-08-05 — `maxDamage` and `potion.effects`: durability and custom effects as item fields
 
 **What.** Two optional item keys. `maxDamage: <1..32767>` sets the item's durability (`Damageable#setMaxDamage`),
