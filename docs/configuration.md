@@ -132,6 +132,11 @@ Any Bukkit `PotionType` constant works (`SWIFTNESS`, `LONG_SWIFTNESS`, `STRONG_H
 - Values are case-insensitive; `fire_resistance` and `FIRE_RESISTANCE` are the same type.
 - `displayName`/`lore` still apply. Leave them out and the potion reads as the plain vanilla item, which is what
   loot-pool potions want.
+- A potion's `displayName` is applied as **CUSTOM_NAME**, not the `ITEM_NAME` every other material gets. A potion
+  names itself from its contents ("Splash Potion of Invisibility", "Splash Potion of Water" for a bare one) and
+  that name outranks `ITEM_NAME`, so a named potion used to reach the client under the material's name instead of
+  the configured one. `CUSTOM_NAME` is the only name it cannot talk over. Italic is forced off, so the two render
+  identically — this is invisible unless you are reading the components.
 
 #### Custom effects
 
